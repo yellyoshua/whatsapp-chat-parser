@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -14,14 +15,15 @@ func TestCopyFile(t *testing.T) {
 	r := ioutil.NopCloser(strings.NewReader("Hola mundo"))
 	r.Close()
 
-	rCopy, err := CopyFile(r)
-	if err != nil {
+	var rCopy bytes.Buffer
+
+	if err := CopyReader(r, &rCopy); err != nil {
 		t.Errorf("Error copying reader -> %s", err)
 	}
 
 	var text string
 
-	if err := ValueOfTextFile(rCopy, &text); err != nil {
+	if err := ValueOfTextFile(&rCopy, &text); err != nil {
 		t.Errorf("Error reading TextFile -> %s", err)
 	}
 

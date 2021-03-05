@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -59,6 +60,7 @@ type Message struct {
 
 // Book __
 type Book interface {
+	Export() []Message
 	ExportJSON() ([]byte, error)
 	ExportHTML(paper Type) (string, error)
 	ExportHTMLFile(paper Type, filePathName string) error
@@ -70,7 +72,7 @@ type export struct {
 
 // Writer _
 type Writer interface {
-	UnmarshalMessagesAndSort(plainMessages string) Book
+	UnmarshalMessagesAndSort(plainMessages string, attachmentURI string) Book
 }
 
 type writertruct struct{}
@@ -92,7 +94,7 @@ func New() Writer {
 	return &writertruct{}
 }
 
-func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string) Book {
+func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentURI string) Book {
 
 	var temporalMessages []Message
 	var messages []Message
@@ -116,11 +118,18 @@ func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string) Book {
 		}
 
 		if sender == m.Author {
+			var attachment Attachment
+			if len(m.Attachment.FileName) > 0 {
+				attachment = Attachment{
+					FileName: filepath.Join(attachmentURI, m.Attachment.FileName),
+				}
+			}
+
 			currentMessage := Message{
 				Date:       m.Date,
 				Author:     m.Author,
 				Message:    messageValue,
-				Attachment: m.Attachment,
+				Attachment: attachment,
 				IsSender:   true,
 				IsReceiver: false,
 				IsInfo:     false,
@@ -130,11 +139,18 @@ func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string) Book {
 		}
 
 		if receiver == m.Author {
+			var attachment Attachment
+			if len(m.Attachment.FileName) > 0 {
+				attachment = Attachment{
+					FileName: filepath.Join(attachmentURI, m.Attachment.FileName),
+				}
+			}
+
 			currentMessage := Message{
 				Date:       m.Date,
 				Author:     m.Author,
 				Message:    messageValue,
-				Attachment: m.Attachment,
+				Attachment: attachment,
 				IsSender:   false,
 				IsReceiver: true,
 				IsInfo:     false,
@@ -192,6 +208,11 @@ func (e *export) ExportHTMLFile(paper Type, filePathName string) error {
 // ExportJSON
 func (e *export) ExportJSON() ([]byte, error) {
 	return json.Marshal(e.messages)
+}
+
+// Export
+func (e *export) Export() []Message {
+	return e.messages
 }
 
 // ExportHTML __

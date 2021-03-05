@@ -36,7 +36,7 @@ var jsparser string = "var __defProp = Object.defineProperty;\nvar __name = (tar
 var RegexContact string = `(\d{1,2}/\d{1,2}/\d{2,4})+(, )[0-9:]+(.+?)(: )`
 
 // RegexAttachment format input `$date - $contact: IMG-20200319-WA0011.jpg (file attached)`
-var RegexAttachment string = `\S+(\.\w{2,4}\s)+\(+(file attached)+\)`
+var RegexAttachment string = `(: )+[\S\s]+(\.\w{2,4}\s)+\(+(file attached)+\)`
 
 // RegexTextAttachment format input `IMG-20200319-WA0011.jpg (file attached)`
 var RegexTextAttachment string = `\(file attached\)`
@@ -148,7 +148,18 @@ func replaceAttachment(message string) string {
 	regexTextAttachment, _ := regexp.Compile(RegexTextAttachment)
 
 	attachment := regexTextAttachment.ReplaceAllString(regexAttachment.FindString(message), "${1}$2")
-	repl := fmt.Sprintf("<attached: %s>", strings.TrimSpace(attachment))
+
+	attachmentBytes := []byte(attachment)
+
+	if len(attachmentBytes) == 0 {
+		return message
+	}
+
+	fileName := strings.TrimSpace(string(attachmentBytes[1:]))
+
+	fileName = strings.ReplaceAll(fileName, " ", "%20")
+
+	repl := fmt.Sprintf(": <attached: %s>", fileName)
 	result := regexAttachment.ReplaceAllString(message, repl)
 	return result
 }

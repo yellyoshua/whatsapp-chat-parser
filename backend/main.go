@@ -3,8 +3,8 @@ package main
 import (
 	"archive/zip"
 	"bytes"
-	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,7 +12,9 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/yellyoshua/whatsapp-chat-parser/api"
+	"github.com/yellyoshua/whatsapp-chat-parser/chatparser"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
+	"github.com/yellyoshua/whatsapp-chat-parser/paper"
 	"github.com/yellyoshua/whatsapp-chat-parser/storage"
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
@@ -77,8 +79,9 @@ func main() {
 	var port string = "4000"
 	var router api.API = api.New()
 	var clientStorage storage.Uploader = storage.New()
+	var attachmentURI string = filepath.Join("https://storage.googleapis.com", os.Getenv("GCS_BUCKET"))
 
-	router.POST("/upload", handlerUploadChats(clientStorage))
+	router.POST("/upload", handlerUploadChats(clientStorage, attachmentURI))
 
 	// var filePath string = "samples/Jhonny/chat.txt"
 	// data, err := ioutil.ReadFile(filePath)
@@ -111,8 +114,10 @@ func main() {
 	logger.CheckError("Error listen server", router.Listen(port))
 }
 
-func handlerUploadChats(clientStorage storage.Uploader) api.Handler {
+func handlerUploadChats(clientStorage storage.Uploader, attachmentURI string) api.Handler {
+	var chat chatparser.Parser = chatparser.New()
 	return func(w http.ResponseWriter, r *http.Request) {
+		writer := paper.New()
 
 		uuid := utils.NewUniqueID()
 		r.ParseMultipartForm(10 << 20)
@@ -130,97 +135,96 @@ func handlerUploadChats(clientStorage storage.Uploader) api.Handler {
 			return
 		}
 
-		reader, err := zip.NewReader(file, header.Size)
+		filesInZip, err := extractZipFile(file, header.Size, uuid)
 		if err != nil {
 			api.ResponseBadRequest(w, "Error reading zip file")
 			return
 		}
 
-		var filesToUpload map[string]io.Reader = make(map[string]io.Reader)
-		var filesToScanText map[string]io.Reader = make(map[string]io.Reader)
-
-		for _, zipFile := range reader.File {
-
-			// TODO: Solve copy file buffer
-
-			// var toUpload io.Reader
-			// var toScan io.Reader
-			// var err error
-
-			f, _ := zipFile.Open()
-			fullPath := filepath.Join(uuid, zipFile.Name)
-
-			// b, _ := ioutil.ReadAll(f)
-			var a, c bytes.Buffer
-			w := io.MultiWriter(&a, &c)
-
-			if _, err := io.Copy(w, f); err != nil {
-				continue
-			}
-
-			// toScan = bytes.NewBuffer(b)
-			// toUpload = bytes.NewBuffer(b)
-
-			// toUpload, err = utils.CopyFile(f)
-			// if err != nil {
-			// 	logger.Info("Error toUpload -> %s", err)
-			// 	continue
-			// }
-			// toScan, err = utils.CopyFile(f)
-			// if err != nil {
-			// 	logger.Info("Error toScan -> %s", err)
-			// 	continue
-			// }
-
-			// filesToUpload[fullPath] = toUpload
-			// filesToScanText[fullPath] = toScan
-			filesToUpload[fullPath] = io.Reader(&a)
-			filesToScanText[fullPath] = io.Reader(&c)
-
-			if err := f.Close(); err != nil {
-				logger.Info("Error closing -> %s", err)
-				continue
-			}
-		}
-
-		// if err := clientStorage.UploadFiles(filesToUpload); err != nil {
-		// 	logger.Info("Error uploading files -> %s", err)
-		// 	api.ResponseBadRequest(w, "Error uploading files")
-		// 	return
-		// }
-
+		var text string
 		var fullMessages string
 
-		for fullPath, f := range filesToUpload {
-
-			if isTXT := strings.Contains(fullPath, ".txt"); isTXT {
-				if err := utils.ValueOfTextFile(f, &fullMessages); err != nil {
-					logger.Info("Error ValueOfTextFile -> %s", err)
-					continue
-				}
-			}
+		if err := processFiles(filesInZip, clientStorage, &text); err != nil {
+			api.ResponseBadRequest(w, "Error processing zip files")
+			return
 		}
 
-		logger.Info("FM (%v)", len(fullMessages))
-
-		var fullMessages2 string
-
-		for fullPath, f := range filesToScanText {
-
-			if isTXT := strings.Contains(fullPath, ".txt"); isTXT {
-				if err := utils.ValueOfTextFile(f, &fullMessages); err != nil {
-					logger.Info("Error ValueOfTextFile -> %s", err)
-					continue
-				}
-			}
+		if err := chat.ParserMessages([]byte(text), &fullMessages); err != nil {
+			api.ResponseBadRequest(w, "Error processing messages")
+			return
 		}
 
-		logger.Info("FM2 (%v)", len(fullMessages2))
+		book := writer.UnmarshalMessagesAndSort(fullMessages, filepath.Join(attachmentURI, uuid))
+		messages, err := book.ExportJSON()
+		if err != nil {
+			api.ResponseBadRequest(w, "Error marshal messages")
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "Name of the File: ", header.Filename)
-		fmt.Fprintln(w, "Size of the File: ", header.Size)
-		fmt.Fprintln(w, "Uploaded in folder: ", uuid)
+		w.Write(messages)
+		// fmt.Fprintln(w, "Name of the File: ", header.Filename)
+		// fmt.Fprintln(w, "Size of the File: ", header.Size)
+		// fmt.Fprintln(w, "Uploaded in folder: ", uuid)
 		return
 	}
+}
+
+func processFiles(files map[string]io.Reader, clientStorage storage.Uploader, messages *string) error {
+	var filesToUpload map[string]io.Reader = make(map[string]io.Reader)
+	var filesToScanText map[string]io.Reader = make(map[string]io.Reader)
+
+	for i, f := range files {
+		var toUpload bytes.Buffer
+		var toScanText bytes.Buffer
+		err := utils.CopyReader(f, &toUpload, &toScanText)
+		if err != nil {
+			return err
+		}
+		filesToUpload[i] = &toUpload
+		filesToScanText[i] = &toScanText
+	}
+
+	if err := clientStorage.UploadFiles(filesToUpload); err != nil {
+		logger.Info("Error uploading files -> %s", err)
+		return err
+	}
+
+	for fullPath, f := range filesToScanText {
+		if isTXT := strings.Contains(fullPath, ".txt"); isTXT {
+			if err := utils.ValueOfTextFile(f, messages); err != nil {
+				logger.Info("Error ValueOfTextFile -> %s", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func extractZipFile(f multipart.File, size int64, folder string) (map[string]io.Reader, error) {
+	var dst map[string]io.Reader = make(map[string]io.Reader)
+	reader, err := zip.NewReader(f, size)
+	if err != nil {
+		return dst, err
+	}
+
+	for _, zipFile := range reader.File {
+		var customReader bytes.Buffer
+		f, _ := zipFile.Open()
+		fullPath := filepath.Join(folder, zipFile.Name)
+
+		if err := utils.CopyReader(f, &customReader); err != nil {
+			return dst, err
+		}
+
+		dst[fullPath] = &customReader
+
+		if err := f.Close(); err != nil {
+			logger.Info("Error closing -> %s", err)
+			return dst, err
+		}
+	}
+
+	return dst, nil
 }

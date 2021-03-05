@@ -24,34 +24,20 @@ func GetCurrentPath() string {
 	return dir
 }
 
-// CopyFile _
-func CopyFile(f io.ReadCloser) (io.Reader, error) {
-	// TODO: solve how to copy this buffer
-	b, err := ioutil.ReadAll(f)
-	return bytes.NewBuffer(b), err
-	// var buf1 bytes.Buffer
-	// w := io.MultiWriter(&buf1)
+// CopyReader _
+func CopyReader(src io.Reader, dst ...*bytes.Buffer) error {
+	b, err := ioutil.ReadAll(src)
+	if err != nil {
+		return err
+	}
 
-	// if _, err := io.Copy(w, f); err != nil {
-	// 	return io.Reader(&buf1), err
-	// }
+	for i := 0; i < len(dst); i++ {
+		s := bytes.NewBuffer(b)
+		*dst[i] = *s
+	}
 
-	// return io.Reader(&buf1), nil
+	return nil
 }
-
-// // CopyFile _
-// func CopyFile(f io.Reader) (io.Reader, error) {
-// 	// b, err := ioutil.ReadAll(f)
-// 	// return io.Reader(bytes.NewBuffer(b)), err
-// 	var buf1 bytes.Buffer
-// 	w := io.MultiWriter(&buf1)
-
-// 	if _, err := io.Copy(w, f); err != nil {
-// 		return io.Reader(&buf1), err
-// 	}
-
-// 	return io.Reader(&buf1), nil
-// }
 
 // ValueOfTextFile __
 func ValueOfTextFile(f io.Reader, text *string) error {

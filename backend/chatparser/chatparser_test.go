@@ -33,11 +33,24 @@ func TestByteToStringMessages(t *testing.T) {
 	assert.Equal(t, true, len(messages) > 10)
 }
 func TestReplaceAttachment(t *testing.T) {
-	message := "3/19/20, 19:00 - Yoshua Lopez: IMG-20200319-WA0011.jpg (file attached)\nJefecito ... un bug!!!!"
-	expected := "3/19/20, 19:00 - Yoshua Lopez: <attached: IMG-20200319-WA0011.jpg>\nJefecito ... un bug!!!!"
-	withAttachment := replaceAttachment(message)
+	attachmentNoSpaces := func() {
+		message := "3/19/20, 19:00 - Yoshua Lopez: IMG-20200319-WA0011.jpg (file attached)\nJefecito ... un bug!!!!"
+		expected := "3/19/20, 19:00 - Yoshua Lopez: <attached: IMG-20200319-WA0011.jpg>\nJefecito ... un bug!!!!"
+		withAttachment := replaceAttachment(message)
 
-	assert.Equal(t, expected, withAttachment)
+		assert.Equal(t, expected, withAttachment)
+	}
+
+	attachmentWithSpaces := func() {
+		message := "3/19/20, 19:00 - Yoshua Lopez: Frank sinatra.jpg (file attached)\nJefecito ... un bug!!!!"
+		expected := "3/19/20, 19:00 - Yoshua Lopez: <attached: Frank%20sinatra.jpg>\nJefecito ... un bug!!!!"
+		withAttachment := replaceAttachment(message)
+
+		assert.Equal(t, expected, withAttachment)
+	}
+
+	attachmentNoSpaces()
+	attachmentWithSpaces()
 }
 func TestParserMessages(t *testing.T) {
 	var outputMessages string

@@ -3,3 +3,4 @@ samples/
 .temp/
 keys.json
 .env
+*.html
