@@ -18,7 +18,7 @@ type API interface {
 }
 
 // Handler __
-type Handler func(http.ResponseWriter, *http.Request)
+type Handler func(http.ResponseWriter, *http.Request, func())
 
 type apistruct struct {
 	router *gin.Engine
@@ -67,8 +67,13 @@ func createServer(router *gin.Engine, port string) *http.Server {
 	return server
 }
 
-func gingonictohttp(handler func(http.ResponseWriter, *http.Request)) func(ctx *gin.Context) {
+func gingonictohttp(handler func(http.ResponseWriter, *http.Request, func())) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		handler(ctx.Writer, ctx.Request)
+		closeRequest := func() {
+			ctx.Request.Context().Done()
+			return
+		}
+
+		handler(ctx.Writer, ctx.Request, closeRequest)
 	}
 }

@@ -19,13 +19,7 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
 
-// "github.com/kyokomi/emoji/v2"
 // github.com/boombuler/barcode
-
-/** TODO: Parse images with Regex.
- * Convert all to go routines
- *
- */
 
 // Input message format: `3/12/20, 21:37 - Pepe: Example message`
 
@@ -78,57 +72,40 @@ func main() {
 
 	var port string = "4000"
 	var router api.API = api.New()
+	var bucket string = os.Getenv("GCS_BUCKET")
 	var clientStorage storage.Uploader = storage.New()
-	var attachmentURI string = filepath.Join("https://storage.googleapis.com", os.Getenv("GCS_BUCKET"))
+	var attachmentURI string = filepath.Join("https://storage.googleapis.com", bucket)
 
 	router.POST("/upload", handlerUploadChats(clientStorage, attachmentURI))
+	router.GET("/", func(w http.ResponseWriter, r *http.Request, closeRequest func()) {
 
-	// var filePath string = "samples/Jhonny/chat.txt"
-	// data, err := ioutil.ReadFile(filePath)
-	// if err != nil {
-	// 	logger.Fatal("Error reading file -> %s", err)
-	// }
+		defer closeRequest()
 
-	// chat := chatparser.New()
-
-	// var plainMessages string
-
-	// logger.CheckError("Error parsing messages", chat.ParserMessages(data, &plainMessages))
-
-	// writer := paper.New()
-	// book := writer.UnmarshalMessagesAndSort(plainMessages)
-
-	// pwd := utils.GetCurrentPath()
-
-	// logger.CheckError("Error exporting html", book.ExportHTMLFile(paper.Loves, pwd+"/demo2.html"))
-
-	// router.GET("/sample1", func(w http.ResponseWriter, r *http.Request) {
-	// 	data, err := book.ExportJSON()
-	// 	if err != nil {
-	// 		api.ResponseBadRequest(w, "Error parsing json")
-	// 		return
-	// 	}
-	// 	w.Write(data)
-	// })
+		api.ResponseBadRequest(w, "Error message")
+	})
 
 	logger.CheckError("Error listen server", router.Listen(port))
 }
 
 func handlerUploadChats(clientStorage storage.Uploader, attachmentURI string) api.Handler {
+	// TODO: Post form or uri with the response type {JSON or HTML}
 	var chat chatparser.Parser = chatparser.New()
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request, closeRequest func()) {
 		writer := paper.New()
 
 		uuid := utils.NewUniqueID()
 		r.ParseMultipartForm(10 << 20)
 		file, header, err := r.FormFile("file")
+		defer file.Close()
 
 		if err != nil {
 			api.ResponseBadRequest(w, "Error file uploading")
 			return
 		}
 
-		defer file.Close()
+		defer r.Body.Close()
+
+		defer closeRequest()
 
 		if isZipFile := strings.Contains(header.Filename, ".zip"); isZipFile == false {
 			api.ResponseBadRequest(w, "Required be a zip file")
@@ -163,9 +140,6 @@ func handlerUploadChats(clientStorage storage.Uploader, attachmentURI string) ap
 
 		w.WriteHeader(http.StatusOK)
 		w.Write(messages)
-		// fmt.Fprintln(w, "Name of the File: ", header.Filename)
-		// fmt.Fprintln(w, "Size of the File: ", header.Size)
-		// fmt.Fprintln(w, "Uploaded in folder: ", uuid)
 		return
 	}
 }
