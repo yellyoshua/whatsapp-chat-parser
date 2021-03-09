@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import Layout from '../components/Layout'
+import Layout from '@/components/Layout'
 
 const IndexPage = () => (
-  <Layout title="Home | Next.js + TypeScript Example">
-    <h1>Hello Next.js 👋</h1>
+  <Layout title="WhatsApp Book">
+    <h1>Hello everyone this is a solution can u export chats from whatsapp and transform to html, pdf or JSON</h1>
     <p>
       <Link href="/about">
         <a>About</a>

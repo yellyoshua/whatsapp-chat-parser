@@ -1,4 +1,9 @@
-# TypeScript Next.js example
+# TypeScript Next.js `WhatsApp Book FrontEnd`
+
+## ENVIRONMENTS
+
+> `SERVER="http://localhost:3000"` backend server that process the request
+
 
 This is a really simple project that shows the usage of Next.js with TypeScript.
 
