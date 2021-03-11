@@ -1,10 +1,13 @@
 import "tailwindcss/tailwind.css";
-import { FC } from "react"
+import type { AppProps } from 'next/app'
+import AppProvider from '@/context/contextApp'
+import { APP_NAME } from "@/config/app"
 
-type Props = { Component: FC, pageProps: any }
 
-function MyApp({ Component, pageProps }: Props) {
-  return <Component {...pageProps} />
+function MyApp({ Component, pageProps }: AppProps) {
+  return <AppProvider state={{ name: APP_NAME, API_URL: process.env.NEXT_PUBLIC_API_URI }}>
+    <Component {...pageProps} />
+  </AppProvider>
 }
 
 export default MyApp

@@ -20,7 +20,13 @@
     "baseUrl": ".",
     "paths": {
       "@/components/*": ["components/*"],
-      "@/pages/*": ["pages/*"]
+      "@/config/*": ["config/*"],
+      "@/pages/*": ["pages/*"],
+      "@/utils/*": ["utils/*"],
+      "@/hooks/*": ["hooks/*"],
+      "@/enums/*": ["enums/*"],
+      "@/interfaces/*": ["interfaces/*"],
+      "@/context/*": ["context/*"]
     }
   },
   "exclude": ["node_modules", ".next"],

@@ -1,5 +1,5 @@
 module.exports = {
-  env : {
-    SERVER: process.env.SERVER,
+  env: {
+    NEXT_PUBLIC_API_URI: process.env.NEXT_PUBLIC_API_URI
   }
-}
+};

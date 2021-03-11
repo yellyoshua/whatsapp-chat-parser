@@ -7,6 +7,9 @@ const receiver = { name: "Frank Sinatra", is: true, no: false };
 const noAttachment = undefined;
 
 /** Dummy messages data. */
+
+export const sampleMessagesId = "sample-whatsapp-chat"
+
 export const sampleMessagesData: Message[] = [
   {
     attachment: noAttachment,

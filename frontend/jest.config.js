@@ -10,7 +10,13 @@ module.exports = {
   roots: ['<rootDir>'],
   moduleNameMapper: {
     '^@/components/(.*)$': resolve(__dirname, './components/$1'),
-    '^@/pages/(.*)$': resolve(__dirname, './pages/$1')
+    '^@/config/(.*)$': resolve(__dirname, './config/$1'),
+    '^@/pages/(.*)$': resolve(__dirname, './pages/$1'),
+    '^@/utils/(.*)$': resolve(__dirname, './utils/$1'),
+    '^@/hooks/(.*)$': resolve(__dirname, './hooks/$1'),
+    '^@/enums/(.*)$': resolve(__dirname, './enums/$1'),
+    '^@/interfaces/(.*)$': resolve(__dirname, './interfaces/$1'),
+    '^@/context/(.*)$': resolve(__dirname, './context/$1')
   },
   modulePaths: ['<rootDir>'],
   moduleDirectories: ['node_modules']

@@ -1,15 +1,21 @@
 import { GetStaticProps } from 'next'
-import { Message } from '../../interfaces'
+import { Message } from '@/interfaces/index'
 import Layout from '@/components/Layout'
+import SearchBackup from '@/components/search/searchBackup'
 
 type Props = {
   messages: Message[]
 }
 
-const WithStaticProps = ({ }: Props) => (
-  <Layout title="Users List | Next.js + TypeScript Example">
+// TODO: create a component with a input that find chats backup
+
+const WithStaticProps = ({ }: Props) => {
+  const title = "Crear un pdf del chat"
+
+  return <Layout title={title}>
+    <SearchBackup />
   </Layout>
-)
+}
 
 export const getStaticProps: GetStaticProps = async () => {
   // Example for including static props in a Next.js function component page.
