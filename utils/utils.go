@@ -8,10 +8,23 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
 )
+
+// UniqLowerCase convert in lowecase
+func UniqLowerCase(input string) string {
+	return strings.ToLower(input)
+}
+
+// LowerCase convert many inputs in lowecase
+func LowerCase(inputs ...*string) {
+	for _, txt := range inputs {
+		*txt = UniqLowerCase(*txt)
+	}
+}
 
 // NewUniqueID return a unique uuid string
 func NewUniqueID() string {

@@ -87,11 +87,83 @@ func processFiles(files map[string]io.Reader, clientStorage storage.Uploader, me
 	return nil
 }
 
-func handlerUploadChats(clientStorage storage.Uploader, attachmentURI string) gin.HandlerFunc {
+func middleHandlerMessages(ctx *gin.Context) {
+	ctx.Request.ParseMultipartForm(10 << 20)
+	_, header, err := ctx.Request.FormFile("file")
+	if err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.Done()
+	} else {
+		isTXTFile := strings.Contains(header.Filename, ".txt")
+		// responseFormat, _ := ctx.Params.Get("format")
+
+		if !isTXTFile {
+			err := fmt.Errorf("submit a .txt file")
+			ctx.AbortWithError(http.StatusBadRequest, err)
+			ctx.Done()
+		} else {
+			ctx.Next()
+		}
+	}
+}
+
+func handlerMessages(ctx *gin.Context) {
+	var chat whatsapp.Parser = whatsapp.New()
+	var writer = paper.New()
+
+	file, _, _ := ctx.Request.FormFile("file")
+
+	var plainMessages string
+	var fullMessages string
+
+	if err := utils.ValueOfTextFile(file, &plainMessages); err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.Done()
+	} else {
+
+		if err := chat.ParserMessages([]byte(plainMessages), &fullMessages); err != nil {
+			ctx.AbortWithError(500, fmt.Errorf("error processing messages"))
+			return
+		} else {
+
+			book := writer.UnmarshalMessagesAndSort(fullMessages, "/")
+
+			responseFormat, _ := ctx.Params.Get("format")
+			switch format := utils.UniqLowerCase(responseFormat); format {
+
+			case constants.FormatJSON:
+				messages, err := book.ExportJSON()
+				if err != nil {
+					ctx.AbortWithError(http.StatusBadRequest, err)
+					ctx.Done()
+				} else {
+					ctx.Data(http.StatusOK, constants.ContentTypeJSON, messages.Value)
+					ctx.Done()
+				}
+
+			case constants.FormatHTML:
+				messages, err := book.ExportHTML(paper.Minimal)
+				if err != nil {
+					ctx.AbortWithError(http.StatusBadRequest, err)
+					ctx.Done()
+				} else {
+					ctx.String(http.StatusOK, messages)
+					ctx.Done()
+				}
+
+			default:
+				ctx.String(http.StatusOK, "OK")
+				ctx.Done()
+			}
+		}
+	}
+}
+
+func handlerChats(clientStorage storage.Uploader, attachmentURI string) gin.HandlerFunc {
 	// TODO: Post form or uri with the response type {JSON or HTML}
 	var chat whatsapp.Parser = whatsapp.New()
 	return func(ctx *gin.Context) {
-		writer := paper.New()
+		var writer = paper.New()
 
 		uuid := utils.NewUniqueID()
 		ctx.Request.ParseMultipartForm(10 << 20)
@@ -164,8 +236,11 @@ func startApp() {
 	var clientStorage storage.Uploader = storage.New()
 	var attachmentURI string = constants.S3BucketEndpoint
 
-	router.POST("/upload", handlerUploadChats(clientStorage, attachmentURI))
 	router.GET("/", handlerHolyShit)
+	router.POST("/whatsapp/:format/chat", handlerChats(clientStorage, attachmentURI))
+	router.Use(middleHandlerMessages).
+		POST("/whatsapp/:format/messages", handlerMessages)
+
 	logger.CheckError("Error listen server", router.Listen(port))
 }
 
