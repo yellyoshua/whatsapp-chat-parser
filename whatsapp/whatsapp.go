@@ -1,4 +1,4 @@
-package chatparser
+package whatsapp
 
 import (
 	"fmt"

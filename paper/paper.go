@@ -61,7 +61,7 @@ type Message struct {
 // Book __
 type Book interface {
 	Export() []Message
-	ExportJSON() ([]byte, error)
+	ExportJSON() (MessagesJSON, error)
 	ExportHTML(paper Type) (string, error)
 	ExportHTMLFile(paper Type, filePathName string) error
 }
@@ -70,18 +70,17 @@ type export struct {
 	messages []Message
 }
 
+type MessagesJSON struct {
+	Value []byte
+	Count int
+}
+
 // Writer _
 type Writer interface {
 	UnmarshalMessagesAndSort(plainMessages string, attachmentURI string) Book
 }
 
 type writertruct struct{}
-
-// Page _
-type Page struct {
-	paper    Type
-	messages []Message
-}
 
 // BookData _
 type BookData struct {
@@ -206,8 +205,12 @@ func (e *export) ExportHTMLFile(paper Type, filePathName string) error {
 }
 
 // ExportJSON
-func (e *export) ExportJSON() ([]byte, error) {
-	return json.Marshal(e.messages)
+func (e *export) ExportJSON() (MessagesJSON, error) {
+	messages, err := json.Marshal(e.messages)
+	return MessagesJSON{
+		Value: messages,
+		Count: len(e.messages),
+	}, err
 }
 
 // Export

@@ -1,0 +1,5 @@
+# Establece el comportamiento predeterminado, 
+# en caso de que las personas no tengan configurado core.autocrlf.
+* text=auto
+# Declara que los archivos siempre tendrán finales de línea CRLF
+*.sh text eol=lf

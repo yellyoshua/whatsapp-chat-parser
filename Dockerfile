@@ -4,14 +4,20 @@ WORKDIR /app
 
 COPY . .
 
-RUN go build .
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o whatsapp-chat-parser cmd/cmd.go
 
 FROM alpine:latest
 
 WORKDIR /app
 
 COPY --from=wpparserbuild /app/whatsapp-chat-parser .
+COPY startApp.sh /app
 
-ENV PATH /app/:$PATH
+VOLUME "/app/config/"
+
+ENV PATH $PATH:/app/
+
+ENV PORT 4000
+ENV GIN_MODE release
 
 CMD [ "whatsapp-chat-parser" ]
