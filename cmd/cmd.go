@@ -1,24 +1,16 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/yellyoshua/whatsapp-chat-parser/api"
 	"github.com/yellyoshua/whatsapp-chat-parser/constants"
+	"github.com/yellyoshua/whatsapp-chat-parser/handler"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
-	"github.com/yellyoshua/whatsapp-chat-parser/paper"
+	"github.com/yellyoshua/whatsapp-chat-parser/middleware"
 	"github.com/yellyoshua/whatsapp-chat-parser/storage"
-	"github.com/yellyoshua/whatsapp-chat-parser/utils"
-	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
 )
 
 func setupEnvironments() {
@@ -55,176 +47,6 @@ func notExistFolder(path string) bool {
 	return os.IsNotExist(err)
 }
 
-func processFiles(files map[string]io.Reader, clientStorage storage.Uploader, messages *string) error {
-	var filesToUpload map[string]io.Reader = make(map[string]io.Reader)
-	var filesToScanText map[string]io.Reader = make(map[string]io.Reader)
-
-	for i, f := range files {
-		var toUpload bytes.Buffer
-		var toScanText bytes.Buffer
-		err := utils.CopyReader(f, &toUpload, &toScanText)
-		if err != nil {
-			return err
-		}
-		filesToUpload[i] = &toUpload
-		filesToScanText[i] = &toScanText
-	}
-
-	if err := clientStorage.UploadFiles(filesToUpload); err != nil {
-		logger.Info("Error uploading files -> %s", err)
-		return err
-	}
-
-	for fullPath, f := range filesToScanText {
-		if isTXT := strings.Contains(fullPath, ".txt"); isTXT {
-			if err := utils.ValueOfTextFile(f, messages); err != nil {
-				logger.Info("Error ValueOfTextFile -> %s", err)
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func middleHandlerMessages(ctx *gin.Context) {
-	ctx.Request.ParseMultipartForm(10 << 20)
-	_, header, err := ctx.Request.FormFile("file")
-	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
-		ctx.Done()
-	} else {
-		isTXTFile := strings.Contains(header.Filename, ".txt")
-		// responseFormat, _ := ctx.Params.Get("format")
-
-		if !isTXTFile {
-			err := fmt.Errorf("submit a .txt file")
-			ctx.AbortWithError(http.StatusBadRequest, err)
-			ctx.Done()
-		} else {
-			ctx.Next()
-		}
-	}
-}
-
-func handlerMessages(ctx *gin.Context) {
-	var chat whatsapp.Parser = whatsapp.New()
-	var writer = paper.New()
-
-	file, _, _ := ctx.Request.FormFile("file")
-
-	var plainMessages string
-	var fullMessages string
-
-	if err := utils.ValueOfTextFile(file, &plainMessages); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
-		ctx.Done()
-	} else {
-
-		if err := chat.ParserMessages([]byte(plainMessages), &fullMessages); err != nil {
-			ctx.AbortWithError(500, fmt.Errorf("error processing messages"))
-			return
-		} else {
-
-			book := writer.UnmarshalMessagesAndSort(fullMessages, "/")
-
-			responseFormat, _ := ctx.Params.Get("format")
-			switch format := utils.UniqLowerCase(responseFormat); format {
-
-			case constants.FormatJSON:
-				messages, err := book.ExportJSON()
-				if err != nil {
-					ctx.AbortWithError(http.StatusBadRequest, err)
-					ctx.Done()
-				} else {
-					ctx.Data(http.StatusOK, constants.ContentTypeJSON, messages.Value)
-					ctx.Done()
-				}
-
-			case constants.FormatHTML:
-				messages, err := book.ExportHTML(paper.Minimal)
-				if err != nil {
-					ctx.AbortWithError(http.StatusBadRequest, err)
-					ctx.Done()
-				} else {
-					ctx.String(http.StatusOK, messages)
-					ctx.Done()
-				}
-
-			default:
-				ctx.String(http.StatusOK, "OK")
-				ctx.Done()
-			}
-		}
-	}
-}
-
-func handlerChats(clientStorage storage.Uploader, attachmentURI string) gin.HandlerFunc {
-	// TODO: Post form or uri with the response type {JSON or HTML}
-	var chat whatsapp.Parser = whatsapp.New()
-	return func(ctx *gin.Context) {
-		var writer = paper.New()
-
-		uuid := utils.NewUniqueID()
-		ctx.Request.ParseMultipartForm(10 << 20)
-		file, header, err := ctx.Request.FormFile("file")
-
-		defer ctx.Done()
-
-		if err != nil {
-			ctx.AbortWithError(500, fmt.Errorf("error file uploading"))
-		} else {
-
-			if isZipFile := strings.Contains(header.Filename, ".zip"); !isZipFile {
-				ctx.AbortWithError(500, fmt.Errorf("required be a zip file"))
-			} else {
-
-				filesInZip, err := utils.ExtractZipFile(file, header.Size, uuid)
-				defer file.Close()
-				if err != nil {
-					ctx.AbortWithError(500, fmt.Errorf("error reading zip file"))
-					return
-				}
-
-				var text string
-				var fullMessages string
-
-				if err := processFiles(filesInZip, clientStorage, &text); err != nil {
-					ctx.AbortWithError(500, fmt.Errorf("error processing zip files"))
-					return
-				}
-
-				if err := chat.ParserMessages([]byte(text), &fullMessages); err != nil {
-					ctx.AbortWithError(500, fmt.Errorf("error processing messages"))
-					return
-				}
-
-				book := writer.UnmarshalMessagesAndSort(fullMessages, filepath.Join(attachmentURI, uuid))
-				messages, err := book.ExportJSON()
-				if err != nil {
-					ctx.AbortWithError(500, fmt.Errorf("error marshal messages"))
-					return
-				}
-
-				var result interface{}
-
-				if err := json.Unmarshal(messages.Value, &result); err != nil {
-					ctx.AbortWithError(500, fmt.Errorf("error marshal messages"))
-					return
-				}
-
-				var resJSON = map[string]interface{}{
-					"uuid":     uuid,
-					"count":    messages.Count,
-					"messages": result,
-				}
-
-				ctx.JSON(http.StatusOK, resJSON)
-			}
-		}
-	}
-}
-
 func handlerHolyShit(ctx *gin.Context) {
 	defer ctx.Done()
 	ctx.String(200, "Holy shit!")
@@ -237,9 +59,12 @@ func startApp() {
 	var attachmentURI string = constants.S3BucketEndpoint
 
 	router.GET("/", handlerHolyShit)
-	router.POST("/whatsapp/:format/chat", handlerChats(clientStorage, attachmentURI))
-	router.Use(middleHandlerMessages).
-		POST("/whatsapp/:format/messages", handlerMessages)
+
+	router.Use(middleware.MiddlewareParseFullChatZIP).
+		POST("/whatsapp/:format/chat", handler.PostUploadChatFiles(clientStorage, attachmentURI))
+
+	router.Use(middleware.MiddlewareParseOnlyChat).
+		POST("/whatsapp/:format/messages", handler.PostParseOnlyChat)
 
 	logger.CheckError("Error listen server", router.Listen(port))
 }
