@@ -1,3 +1,6 @@
+// FROM
+// https://github.com/Pustur/whatsapp-chat-parser
+
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", {value, configurable: true});
 var __commonJS = (callback, module2) => () => {
