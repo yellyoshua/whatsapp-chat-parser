@@ -11,9 +11,6 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=wpparserbuild /app/whatsapp-chat-parser .
-COPY startApp.sh /app
-
-VOLUME "/app/config/"
 
 ENV PATH $PATH:/app/
 

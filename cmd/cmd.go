@@ -2,8 +2,8 @@ package main
 
 import (
 	"os"
+	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/yellyoshua/whatsapp-chat-parser/api"
 	"github.com/yellyoshua/whatsapp-chat-parser/constants"
@@ -18,9 +18,11 @@ func setupEnvironments() {
 
 	// ENV_NAME : isRequerid?
 	envs := map[string]bool{
-		"PORT":           false,
-		"AWS_ACCESS_KEY": true,
-		"AWS_SECRET_KEY": true,
+		"PORT":             false,
+		"S3_BUCKET_NAME":   true,
+		"S3_BUCKET_REGION": true,
+		"AWS_ACCESS_KEY":   true,
+		"AWS_SECRET_KEY":   true,
 	}
 
 	for name, isRequired := range envs {
@@ -47,22 +49,31 @@ func notExistFolder(path string) bool {
 	return os.IsNotExist(err)
 }
 
-func handlerHolyShit(ctx *gin.Context) {
-	defer ctx.Done()
-	ctx.String(200, "Holy shit!")
+func getAttachmentURI() string {
+	var s3AttachmentURI string
+	var defaultS3BucketName = constants.S3BucketName
+	var s3BucketName = os.Getenv("S3_BUCKET_NAME")
+	var s3BucketRegion = os.Getenv("S3_BUCKET_REGION")
+
+	if len(s3BucketName) == 0 {
+		s3AttachmentURI = strings.Replace(constants.S3BucketEndpoint, "BUCKET_NAME", defaultS3BucketName, -1)
+	} else {
+		s3AttachmentURI = strings.Replace(constants.S3BucketEndpoint, "BUCKET_NAME", s3BucketName, -1)
+	}
+
+	return strings.Replace(s3AttachmentURI, "BUCKET_REGION", s3BucketRegion, -1)
 }
 
 func startApp() {
 	var port string = os.Getenv("PORT")
 	var router api.API = api.New()
 	var clientStorage storage.Uploader = storage.New()
-	var attachmentURI string = constants.S3BucketEndpoint
+	var attachmentURI string = getAttachmentURI()
 
-	router.GET("/", handlerHolyShit)
+	router.GET("/", handler.HolyShit)
 
 	router.Use(middleware.MiddlewareParseFullChatZIP).
 		POST("/whatsapp/:format/chat", handler.PostUploadChatFiles(clientStorage, attachmentURI))
-
 	router.Use(middleware.MiddlewareParseOnlyChat).
 		POST("/whatsapp/:format/messages", handler.PostParseOnlyChat)
 

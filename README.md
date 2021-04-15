@@ -86,6 +86,8 @@ Para inicializar como API debe definir las siguientes variables de entorno.
 | Name | Type | Description |
 | :--- | :--- | :--- |
 | PORT | Default: 4000| Puerto de escucha de la API REST |
+| S3_BUCKET_NAME | `String`| Nombre del bucket de S3 |
+| S3_BUCKET_REGION | `String`| Regi&oacute;n del bucket de S3 |
 | AWS_ACCESS_KEY | `String`| Clave de acceso S3 del bucket |
 | AWS_SECRET_KEY | `String`| Clave secreta de acceso S3 del bucket |
 <!-- prettier-ignore-end -->

@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/google/uuid"
@@ -39,6 +40,33 @@ func GetCurrentPath() string {
 		return ""
 	}
 	return dir
+}
+
+func ReflectPointer(dest interface{}, val interface{}) {
+	isPointer := func(val interface{}) bool {
+		return reflect.TypeOf(val).Kind() == reflect.Ptr
+	}
+
+	if isPointer(dest) {
+		rGopher := reflect.ValueOf(dest)
+		rG2Val := reflect.ValueOf(val)
+		rGopher.Elem().Set(rG2Val)
+	}
+}
+
+func DuplicateReaders(readers map[string]io.Reader, destReaders ...map[string]io.Reader) error {
+	// var buffers []*bytes.Buffer = make([]*bytes.Buffer, 0)
+	for i, r := range readers {
+		var buffer bytes.Buffer
+		if err := CopyReader(r, &buffer); err != nil {
+			return err
+		}
+
+		for _, d := range destReaders {
+			d[i] = &buffer
+		}
+	}
+	return nil
 }
 
 // CopyReader _

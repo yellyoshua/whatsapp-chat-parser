@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yellyoshua/whatsapp-chat-parser/constants"
@@ -21,6 +21,11 @@ func initParsers() (whatsapp.Parser, paper.Writer) {
 	var chat whatsapp.Parser = whatsapp.New()
 	var writer = paper.New()
 	return chat, writer
+}
+
+func HolyShit(ctx *gin.Context) {
+	defer ctx.Done()
+	ctx.String(200, "Holy shit!")
 }
 
 func PostUploadChatFiles(clientStorage storage.Uploader, attachmentURI string) gin.HandlerFunc {
@@ -42,11 +47,21 @@ func PostUploadChatFiles(clientStorage storage.Uploader, attachmentURI string) g
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error reading zip file")
 			ctx.Done()
 		} else {
+			var wg sync.WaitGroup
+			var filesToScanText map[string]io.Reader = make(map[string]io.Reader)
+			var filesToUpload map[string]io.Reader = make(map[string]io.Reader)
 
-			if err := processFiles(filesInZip, clientStorage, &text); err != nil {
-				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing zip files")
+			if err := utils.DuplicateReaders(filesInZip, filesToUpload, filesToScanText); err != nil {
+				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error duplicating readers")
 				ctx.Done()
 			} else {
+
+				wg.Add(1)
+				go extractChatFromFiles(filesToScanText, &text, &wg)
+				wg.Add(1)
+				go uploadFilesS3(filesToUpload, clientStorage, &wg)
+
+				wg.Wait()
 				if err := chat.ParserMessages([]byte(text), &fullMessages); err != nil {
 					ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
 					ctx.Done()
@@ -54,7 +69,6 @@ func PostUploadChatFiles(clientStorage storage.Uploader, attachmentURI string) g
 					book := writer.UnmarshalMessagesAndSort(fullMessages, filepath.Join(attachmentURI, uuid))
 					resWithFormat(ctx, book, responseFormat)
 				}
-
 			}
 		}
 	}
@@ -62,25 +76,28 @@ func PostUploadChatFiles(clientStorage storage.Uploader, attachmentURI string) g
 
 func PostParseOnlyChat(ctx *gin.Context) {
 	chat, writer := initParsers()
+	file, fileHeader, _ := ctx.Request.FormFile("file")
 
-	file, _, _ := ctx.Request.FormFile("file")
-
-	var plainMessages string
+	var text string
+	var wg sync.WaitGroup
 	var fullMessages string
 
-	if err := utils.ValueOfTextFile(file, &plainMessages); err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+	files := map[string]io.Reader{
+		fileHeader.Filename: file,
+	}
+
+	wg.Add(1)
+	go extractChatFromFiles(files, &text, &wg)
+
+	wg.Wait()
+
+	if err := chat.ParserMessages([]byte(text), &fullMessages); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
 		ctx.Done()
 	} else {
-
-		if err := chat.ParserMessages([]byte(plainMessages), &fullMessages); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
-			ctx.Done()
-		} else {
-			book := writer.UnmarshalMessagesAndSort(fullMessages, "/")
-			responseFormat, _ := ctx.Params.Get("format")
-			resWithFormat(ctx, book, responseFormat)
-		}
+		book := writer.UnmarshalMessagesAndSort(fullMessages, "/")
+		responseFormat, _ := ctx.Params.Get("format")
+		resWithFormat(ctx, book, responseFormat)
 	}
 }
 
@@ -122,34 +139,22 @@ func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string) {
 	}
 }
 
-func processFiles(files map[string]io.Reader, clientStorage storage.Uploader, messages *string) error {
-	var filesToUpload map[string]io.Reader = make(map[string]io.Reader)
-	var filesToScanText map[string]io.Reader = make(map[string]io.Reader)
+func uploadFilesS3(files map[string]io.Reader, clientStorage storage.Uploader, wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	for i, f := range files {
-		var toUpload bytes.Buffer
-		var toScanText bytes.Buffer
-		err := utils.CopyReader(f, &toUpload, &toScanText)
-		if err != nil {
-			return err
-		}
-		filesToUpload[i] = &toUpload
-		filesToScanText[i] = &toScanText
-	}
-
-	if err := clientStorage.UploadFiles(filesToUpload); err != nil {
+	if err := clientStorage.UploadFiles(files); err != nil {
 		logger.Info("Error uploading files -> %s", err)
-		return err
 	}
+}
 
-	for fullPath, f := range filesToScanText {
+func extractChatFromFiles(files map[string]io.Reader, messages *string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for fullPath, f := range files {
 		if isTXT := strings.Contains(fullPath, ".txt"); isTXT {
 			if err := utils.ValueOfTextFile(f, messages); err != nil {
 				logger.Info("Error ValueOfTextFile -> %s", err)
-				return err
 			}
 		}
 	}
-
-	return nil
 }

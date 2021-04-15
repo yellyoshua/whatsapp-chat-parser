@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -26,9 +27,9 @@ type uploader struct {
 
 // New __
 func New() Uploader {
-
+	s3BucketRegion := os.Getenv("S3_BUCKET_REGION")
 	mySession, errSessionAWS := session.NewSession(&aws.Config{
-		Region:      aws.String(constants.S3BucketRegion),
+		Region:      aws.String(s3BucketRegion),
 		Credentials: credentials.NewEnvCredentials(),
 	})
 	logger.CheckError("error creating session s3", errSessionAWS)
