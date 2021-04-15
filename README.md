@@ -1,12 +1,14 @@
 # 💬 Whatsapp chat parser 📋
 
-> `Actualizado 13 de abril del 2021`
+> `Actualizado 15 de abril del 2021`
 
 # Introducci&oacute;n
 
 Este paquete le permite convertir sus chats de whatsapp a formato JSON, PDF ó HTML.
 
-
+# Pr&oacute;ximas Features
+- Imagen QR como link a archivos de audio y video subidos a la nube
+- Archivos audio y video reemplazados por texto `Archivo de audio ó Archivo de video`
 
 # Instalar 💻
 
@@ -69,6 +71,33 @@ func main() {
 	)
 }
 ```
+
+## Correr API REST en docker 🐳
+
+Imagen subida a [Docker Registry](https://hub.docker.com/r/yellyoshua/whatsapp-chat-parser)
+
+```
+$ docker pull yellyoshua/whatsapp-chat-parser
+```
+Archivo `.env.production` para cargar las variables de entorno a la imagen de Docker
+
+```.env
+PORT=4000
+AWS_ACCESS_KEY=
+AWS_SECRET_KEY=
+S3_BUCKET_NAME="whatsapp-chat-parser"
+S3_BUCKET_REGION="earth"
+```
+
+```
+$ docker run --name whatsapp -p 4000:4000 --rm --env-file ./.env.production yellyoshua/whatsapp-chat-parser
+```
+&Oacute; agregar las variables de entorno por linea de comandos
+
+```
+$ docker run --name whatsapp -p 4000:4000 --rm -e S3_BUCKET_NAME="whatsapp-chat-parser" -e PORT=4000 -e S3_BUCKET_REGION="earth" -e AWS_ACCESS_KEY="" -e AWS_SECRET_KEY="" yellyoshua/whatsapp-chat-parser
+```
+
 
 ## Inicializar como API REST 😎
 
