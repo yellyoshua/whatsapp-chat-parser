@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"os"
-	"strings"
+	"os/signal"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/yellyoshua/whatsapp-chat-parser/api"
 	"github.com/yellyoshua/whatsapp-chat-parser/constants"
 	"github.com/yellyoshua/whatsapp-chat-parser/handler"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
@@ -18,11 +21,11 @@ func setupEnvironments() {
 
 	// ENV_NAME : isRequerid?
 	envs := map[string]bool{
-		"PORT":             false,
-		"S3_BUCKET_NAME":   true,
-		"S3_BUCKET_REGION": true,
-		"AWS_ACCESS_KEY":   true,
-		"AWS_SECRET_KEY":   true,
+		"PORT":           false,
+		"S3_BUCKET_NAME": true,
+		"AWS_REGION":     true,
+		"AWS_ACCESS_KEY": true,
+		"AWS_SECRET_KEY": true,
 	}
 
 	for name, isRequired := range envs {
@@ -49,39 +52,62 @@ func notExistFolder(path string) bool {
 	return os.IsNotExist(err)
 }
 
-func getAttachmentURI() string {
-	var s3AttachmentURI string
-	var defaultS3BucketName = constants.S3BucketName
-	var s3BucketName = os.Getenv("S3_BUCKET_NAME")
-	var s3BucketRegion = os.Getenv("S3_BUCKET_REGION")
-
-	if len(s3BucketName) == 0 {
-		s3AttachmentURI = strings.Replace(constants.S3BucketEndpoint, "BUCKET_NAME", defaultS3BucketName, -1)
-	} else {
-		s3AttachmentURI = strings.Replace(constants.S3BucketEndpoint, "BUCKET_NAME", s3BucketName, -1)
-	}
-
-	return strings.Replace(s3AttachmentURI, "BUCKET_REGION", s3BucketRegion, -1)
-}
-
-func startApp() {
-	var port string = os.Getenv("PORT")
-	var router api.API = api.New()
-	var clientStorage storage.Uploader = storage.New()
-	var attachmentURI string = getAttachmentURI()
-
-	router.GET("/", handler.HolyShit)
-
-	router.Use(middleware.MiddlewareParseFullChatZIP).
-		POST("/whatsapp/:format/chat", handler.PostUploadChatFiles(clientStorage, attachmentURI))
-	router.Use(middleware.MiddlewareParseOnlyChat).
-		POST("/whatsapp/:format/messages", handler.PostParseOnlyChat)
-
-	logger.CheckError("Error listen server", router.Listen(port))
-}
-
 func main() {
 	setupFolders()
 	setupEnvironments()
-	startApp()
+
+	router := gin.New()
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	port := os.Getenv("PORT")
+	clientStorage := storage.New()
+
+	exit := make(chan bool)
+	go handleInterrupt(exit)
+
+	router.GET("/", handler.HolyShit)
+
+	whatsappHandler := router.Group("/whatsapp").Use(middleware.InjectDependencies(&clientStorage))
+
+	whatsappHandler.POST("/:format/chat", handler.PostUploadChatFiles).Use(middleware.ParseFullChatZIP)
+	whatsappHandler.POST("/:format/messages", handler.PostParseOnlyChat).Use(middleware.ParseOnlyChat)
+
+	if noPort := len(port) == 0; noPort {
+		port = constants.DefaultPort
+	}
+
+	// HTTP SERVER
+	httpServer := &http.Server{
+		Addr:           ":" + port,
+		Handler:        router,
+		ReadTimeout:    20 * time.Second,
+		WriteTimeout:   20 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil {
+			panic("Error trying start whatsapp-chat-parser server -> " + err.Error())
+		}
+	}()
+
+	<-exit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil && err != http.ErrServerClosed {
+		panic("Gracefull HTTP server shutdown failed: " + err.Error())
+	}
+
+}
+
+func handleInterrupt(exit chan bool) {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
+
+	logger.Info("Closing server")
+	exit <- true
 }

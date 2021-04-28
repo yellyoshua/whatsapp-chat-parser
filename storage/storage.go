@@ -27,14 +27,17 @@ type uploader struct {
 
 // New __
 func New() Uploader {
-	s3BucketRegion := os.Getenv("S3_BUCKET_REGION")
-	mySession, errSessionAWS := session.NewSession(&aws.Config{
+	s3BucketRegion := os.Getenv("AWS_REGION")
+	currentSession, errSessionAWS := session.NewSession(&aws.Config{
 		Region:      aws.String(s3BucketRegion),
 		Credentials: credentials.NewEnvCredentials(),
 	})
-	logger.CheckError("error creating session s3", errSessionAWS)
 
-	s3Client := s3.New(mySession)
+	if errSessionAWS != nil {
+		logger.Fatal("error trying connect to storage -> " + errSessionAWS.Error())
+	}
+
+	s3Client := s3.New(currentSession)
 	s3Uploader := s3manager.NewUploaderWithClient(s3Client)
 
 	return &uploader{
@@ -44,40 +47,40 @@ func New() Uploader {
 }
 
 func (u *uploader) UploadFiles(files map[string]io.Reader) error {
-	var chans chan error = make(chan error)
+	var chError chan error = make(chan error)
 	var wg sync.WaitGroup
 	var err error
 
-	uploadFileRoutine := func(ctx context.Context, fullPath string, f io.Reader, c chan error, wg *sync.WaitGroup) {
+	uploadFileRoutine := func(fullPath string, f io.Reader, chError chan error, wg *sync.WaitGroup) {
+		ctx := context.TODO()
 		upParams := &s3manager.UploadInput{
 			Bucket: u.s3Bucket,
 			Key:    &fullPath,
 			ACL:    aws.String("public-read"), // TODO: Set public files
 			Body:   f,
 		}
-
 		defer wg.Done()
 
 		_, err := u.s3Uploader.UploadWithContext(ctx, upParams)
-		c <- err
+
+		chError <- err
 	}
 
 	for fullPath, f := range files {
 		wg.Add(1)
-		ctx := context.Background()
-		go uploadFileRoutine(ctx, fullPath, f, chans, &wg)
+		go uploadFileRoutine(fullPath, f, chError, &wg)
 	}
 
 	go func() {
-		for c := range chans {
-			if c != nil {
-				err = c
-			}
-		}
+		wg.Wait()
+		close(chError)
 	}()
 
-	wg.Wait()
-	close(chans)
+	for e := range chError {
+		if e != nil {
+			err = e
+		}
+	}
 
 	return err
 }

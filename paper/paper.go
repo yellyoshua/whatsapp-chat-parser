@@ -77,7 +77,7 @@ type MessagesJSON struct {
 
 // Writer _
 type Writer interface {
-	UnmarshalMessagesAndSort(plainMessages string, attachmentURI string) Book
+	UnmarshalMessagesAndSort(plainMessages string, attachmentFiles map[string]string, attachmentURL string) Book
 }
 
 type writertruct struct{}
@@ -93,7 +93,19 @@ func New() Writer {
 	return &writertruct{}
 }
 
-func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentURI string) Book {
+func attachURLFile(attachmentURL string, attachmentFiles map[string]string, attachment Attachment) Attachment {
+	if len(attachmentFiles[attachment.FileName]) != 0 {
+		return Attachment{
+			FileName: filepath.Join(attachmentURL, attachmentFiles[attachment.FileName]),
+		}
+	}
+
+	return Attachment{
+		FileName: filepath.Join(attachmentURL, attachment.FileName),
+	}
+}
+
+func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentFiles map[string]string, attachmentURL string) Book {
 
 	var temporalMessages []Message
 	var messages []Message
@@ -119,9 +131,7 @@ func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentU
 		if sender == m.Author {
 			var attachment Attachment
 			if len(m.Attachment.FileName) > 0 {
-				attachment = Attachment{
-					FileName: filepath.Join(attachmentURI, m.Attachment.FileName),
-				}
+				attachment = attachURLFile(attachmentURL, attachmentFiles, m.Attachment)
 			}
 
 			currentMessage := Message{
@@ -140,9 +150,7 @@ func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentU
 		if receiver == m.Author {
 			var attachment Attachment
 			if len(m.Attachment.FileName) > 0 {
-				attachment = Attachment{
-					FileName: filepath.Join(attachmentURI, m.Attachment.FileName),
-				}
+				attachment = attachURLFile(attachmentURL, attachmentFiles, m.Attachment)
 			}
 
 			currentMessage := Message{

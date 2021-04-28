@@ -85,8 +85,8 @@ Archivo `.env.production` para cargar las variables de entorno a la imagen de Do
 PORT=4000
 AWS_ACCESS_KEY=
 AWS_SECRET_KEY=
+AWS_REGION="earth"
 S3_BUCKET_NAME="whatsapp-chat-parser"
-S3_BUCKET_REGION="earth"
 ```
 
 ```
@@ -95,7 +95,7 @@ $ docker run --name whatsapp -p 4000:4000 --rm --env-file ./.env.production yell
 &Oacute; agregar las variables de entorno por linea de comandos
 
 ```
-$ docker run --name whatsapp -p 4000:4000 --rm -e S3_BUCKET_NAME="whatsapp-chat-parser" -e PORT=4000 -e S3_BUCKET_REGION="earth" -e AWS_ACCESS_KEY="" -e AWS_SECRET_KEY="" yellyoshua/whatsapp-chat-parser
+$ docker run --name whatsapp -p 4000:4000 --rm -e S3_BUCKET_NAME="whatsapp-chat-parser" -e PORT=4000 -e AWS_REGION="earth" -e AWS_ACCESS_KEY="" -e AWS_SECRET_KEY="" yellyoshua/whatsapp-chat-parser
 ```
 
 
@@ -116,7 +116,7 @@ Para inicializar como API debe definir las siguientes variables de entorno.
 | :--- | :--- | :--- |
 | PORT | Default: 4000| Puerto de escucha de la API REST |
 | S3_BUCKET_NAME | `String`| Nombre del bucket de S3 |
-| S3_BUCKET_REGION | `String`| Regi&oacute;n del bucket de S3 |
+| AWS_REGION | `String`| Regi&oacute;n del bucket de S3 |
 | AWS_ACCESS_KEY | `String`| Clave de acceso S3 del bucket |
 | AWS_SECRET_KEY | `String`| Clave secreta de acceso S3 del bucket |
 <!-- prettier-ignore-end -->

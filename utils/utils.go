@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/yellyoshua/whatsapp-chat-parser/constants"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
 )
 
@@ -96,7 +97,7 @@ func ValueOfTextFile(f io.Reader, text *string) error {
 	return nil
 }
 
-func ExtractZipFile(f multipart.File, size int64, folder string) (map[string]io.Reader, error) {
+func ExtractZipFile(f multipart.File, size int64) (map[string]io.Reader, error) {
 	var dst map[string]io.Reader = make(map[string]io.Reader)
 	reader, err := zip.NewReader(f, size)
 	if err != nil {
@@ -106,13 +107,13 @@ func ExtractZipFile(f multipart.File, size int64, folder string) (map[string]io.
 	for _, zipFile := range reader.File {
 		var customReader bytes.Buffer
 		f, _ := zipFile.Open()
-		fullPath := filepath.Join(folder, zipFile.Name)
+		fileURL := filepath.Join(zipFile.Name)
 
 		if err := CopyReader(f, &customReader); err != nil {
 			return dst, err
 		}
 
-		dst[fullPath] = &customReader
+		dst[fileURL] = &customReader
 
 		if err := f.Close(); err != nil {
 			logger.Info("error closing zip file -> %s", err)
@@ -121,4 +122,19 @@ func ExtractZipFile(f multipart.File, size int64, folder string) (map[string]io.
 	}
 
 	return dst, nil
+}
+
+func GetAttachmentURL() string {
+	var s3AttachmentURL string
+	var defaultS3BucketName = constants.S3BucketName
+	var s3BucketName = os.Getenv("S3_BUCKET_NAME")
+	var s3BucketRegion = os.Getenv("AWS_REGION")
+
+	if len(s3BucketName) == 0 {
+		s3AttachmentURL = strings.Replace(constants.S3BucketEndpoint, "BUCKET_NAME", defaultS3BucketName, -1)
+	} else {
+		s3AttachmentURL = strings.Replace(constants.S3BucketEndpoint, "BUCKET_NAME", s3BucketName, -1)
+	}
+
+	return strings.Replace(s3AttachmentURL, "BUCKET_REGION", s3BucketRegion, -1)
 }
