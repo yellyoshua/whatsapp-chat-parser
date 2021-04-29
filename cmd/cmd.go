@@ -70,8 +70,8 @@ func main() {
 
 	whatsappHandler := router.Group("/whatsapp").Use(middleware.InjectDependencies(&clientStorage))
 
-	whatsappHandler.POST("/:format/chat", handler.PostUploadChatFiles).Use(middleware.ParseFullChatZIP)
-	whatsappHandler.POST("/:format/messages", handler.PostParseOnlyChat).Use(middleware.ParseOnlyChat)
+	whatsappHandler.POST("/:format/chat", middleware.ParseFullChatZIP, handler.PostUploadChatFiles)
+	whatsappHandler.POST("/:format/messages", middleware.ParseOnlyChat, handler.PostParseOnlyChat)
 
 	if noPort := len(port) == 0; noPort {
 		port = constants.DefaultPort

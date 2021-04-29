@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/skip2/go-qrcode"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
@@ -14,16 +15,14 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
 )
 
-var FilterExtensions []string = []string{
-	".img",
-	".png",
-	".jpg",
+var FilterQRExtensions []string = []string{
 	".opus",
-	".webp",
+	".mp4",
 }
 
+// TODO: Testear esta funcionalidad
 func findExtension(filename string) bool {
-	for _, filter := range FilterExtensions {
+	for _, filter := range FilterQRExtensions {
 		r, _ := regexp.Compile(filter)
 		if exist := r.MatchString(filename); exist {
 			return true
@@ -32,9 +31,10 @@ func findExtension(filename string) bool {
 	return false
 }
 
-func GenerateQR(files map[string]io.Reader, files_replaced_with_qr chan map[string]io.Reader, qr_files_path chan map[string]string) {
+func FilterQRFilesExtensions(files map[string]io.Reader, qr_files_path chan map[string]string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	var qrFilesPaths map[string]string = make(map[string]string)
-	var qrFiles map[string]io.Reader = make(map[string]io.Reader)
 
 	for path_file := range files {
 		canReplaceWithQR := findExtension(path_file)
@@ -42,19 +42,37 @@ func GenerateQR(files map[string]io.Reader, files_replaced_with_qr chan map[stri
 		if canReplaceWithQR {
 			id := utils.NewUniqueID()
 			qrPathFile := path.Join("qr", id+".png")
-
-			q, _ := qrcode.New(path_file, qrcode.High)
-			qrImage, _ := q.PNG(256)
-			qrFiles[qrPathFile] = bytes.NewReader(qrImage)
 			qrFilesPaths[path_file] = qrPathFile
 		}
 	}
 
-	files_replaced_with_qr <- qrFiles
+	// Este canal se va a leer dentro de otra go routine y afuera.
+	qr_files_path <- qrFilesPaths
 	qr_files_path <- qrFilesPaths
 }
 
-func ExtractChatFromFiles(files map[string]io.Reader, chChat chan string) {
+func GenerateQR(qr_files_path <-chan map[string]string, files_replaced_with_qr chan map[string]io.Reader, wg *sync.WaitGroup) {
+	qrPaths := <-qr_files_path
+
+	defer wg.Done()
+
+	var qrFiles map[string]io.Reader = make(map[string]io.Reader)
+
+	for _, qrHashPathFile := range qrPaths {
+
+		if len(qrHashPathFile) != 0 {
+			q, _ := qrcode.New(qrHashPathFile, qrcode.High)
+			qrImage, _ := q.PNG(256)
+			qrFiles[qrHashPathFile] = bytes.NewReader(qrImage)
+		}
+	}
+
+	files_replaced_with_qr <- qrFiles
+}
+
+func ExtractChatFromFiles(files map[string]io.Reader, chChat chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	var chat string
 
 	for path_file, file := range files {

@@ -9,6 +9,7 @@ install:
 	go get .
 
 test:
+	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/api
 	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/whatsapp
 	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/utils
 	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/paper
