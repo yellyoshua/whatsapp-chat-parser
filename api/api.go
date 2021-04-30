@@ -86,12 +86,14 @@ func ExtractChatFromFiles(files map[string]io.Reader, chChat chan string, wg *sy
 	chChat <- chat
 }
 
-func ParseWhatsappChatMessages(chat string, qr_files map[string]string, attachmentURL string) (paper.Book, error) {
+func ParseWhatsappChatMessages(user_id string, chat string, qr_files map[string]string, attachmentURL string) (paper.Book, error) {
 	var messages string
 	wp := whatsapp.New()
 	writer := paper.New()
 
-	if err := wp.ParserMessages([]byte(chat), &messages); err != nil {
+	rawChat := wp.ChatParser(user_id, []byte(chat))
+
+	if err := rawChat.ParserMessages(&messages); err != nil {
 		return nil, err
 	}
 

@@ -1,6 +1,7 @@
 whatsapp-chat-parser
 samples/
 .temp/
+.tmp/
 keys.json
 .env.production
 .env.local

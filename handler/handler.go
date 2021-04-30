@@ -125,7 +125,7 @@ func PostUploadChatFiles(ctx *gin.Context) {
 				close(chUploads)
 			}(chUploads)
 
-			book, err := api.ParseWhatsappChatMessages(chat, qrFilesPath, attachmentsURL)
+			book, err := api.ParseWhatsappChatMessages(uuid, chat, qrFilesPath, attachmentsURL)
 
 			if err != nil {
 				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
@@ -138,6 +138,7 @@ func PostUploadChatFiles(ctx *gin.Context) {
 }
 
 func PostParseOnlyChat(ctx *gin.Context) {
+	uuid := utils.NewUniqueID()
 	file, fileHeader, _ := ctx.Request.FormFile("file")
 
 	files := map[string]io.Reader{
@@ -150,7 +151,7 @@ func PostParseOnlyChat(ctx *gin.Context) {
 	go api.ExtractChatFromFiles(files, chChat, &wg)
 	wg.Wait()
 
-	book, err := api.ParseWhatsappChatMessages(<-chChat, nil, "/")
+	book, err := api.ParseWhatsappChatMessages(uuid, <-chChat, nil, "/")
 
 	defer close(chChat)
 

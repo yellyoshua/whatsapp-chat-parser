@@ -18,9 +18,9 @@ clean-dependencies:
 	go mod tidy
 
 build:
-	go build .
+	go build -o whatsapp-chat-parser cmd/cmd.go
 
 cross-build:
-	CGO_ENABLED=1 GOOS=linux GOARCH=386 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o whatsapp-chat-parser-linux-386 cmd/cmd.go
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o whatsapp-chat-parser-linux-amd64 cmd/cmd.go
-	CGO_ENABLED=1 GOOS=windows GOARCH=386 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o whatsapp-chat-parser-win32 cmd/cmd.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -o whatsapp-chat-parser-linux-386 cmd/cmd.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o whatsapp-chat-parser-linux-amd64 cmd/cmd.go
+	CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -o whatsapp-chat-parser-win32 cmd/cmd.go
