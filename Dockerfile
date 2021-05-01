@@ -19,8 +19,8 @@ RUN apk update && \
   deno install \
   --allow-read \
   --allow-run \
-  -f -n chat-parser \
-  --unstable ./bin/parser-chat/index.ts
+  -f -n whatsapp-parser \
+  --unstable ./bin/whatsapp-parser/index.ts
 
 ENV PATH="$PATH:/app/"
 ENV PORT 4000

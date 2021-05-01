@@ -31,7 +31,7 @@ func TestByteToStringMessages(t *testing.T) {
 
 	messages := byteToStringMessages([]byte(inputMessages))
 
-	assert.Equal(t, true, len(messages) > 10)
+	assert.Equal(t, true, len(messages) < len(inputMessages))
 }
 func TestReplaceAttachment(t *testing.T) {
 	attachmentNoSpaces := func() {
@@ -62,7 +62,7 @@ func TestParserMessages(t *testing.T) {
 	rawChat := wp.ChatParser(uuid, []byte(inputMessages))
 
 	if err := rawChat.ParserMessages(&outputMessages); err != nil {
-		t.Errorf("Ërror parsing messages -> " + err.Error())
+		t.Errorf("error parsing messages -> " + err.Error())
 	}
 
 	// assert.Equal(t, true, len(outputMessages) > 0)

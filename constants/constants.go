@@ -8,6 +8,10 @@ const (
 )
 
 const (
+	CLI_WP_PARSER string = "whatsapp-parser"
+)
+
+const (
 	ContentTypeJSON string = "application/json; charset=utf-8"
 )
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -137,16 +138,22 @@ func routineInsideRoutine() {
 }
 
 func main() {
-	initialActionRoutine := time.Now()
-	actionRoutine()
-	fmt.Println(time.Since(initialActionRoutine))
+	vals := strings.Split("06_01_2020=23:25", "=")
+	dates := strings.Split(vals[0], "_")
 
-	initialDualRoutine := time.Now()
-	routineDualChannels()
-	fmt.Println(time.Since(initialDualRoutine))
+	fmt.Println(dates[0] + " month - " + dates[1] + " day - " + dates[2] + " year")
+	fmt.Println(vals[1])
 
-	initialInsideRoutine := time.Now()
-	routineInsideRoutine()
-	fmt.Println(time.Since(initialInsideRoutine))
+	// initialActionRoutine := time.Now()
+	// actionRoutine()
+	// fmt.Println(time.Since(initialActionRoutine))
+
+	// initialDualRoutine := time.Now()
+	// routineDualChannels()
+	// fmt.Println(time.Since(initialDualRoutine))
+
+	// initialInsideRoutine := time.Now()
+	// routineInsideRoutine()
+	// fmt.Println(time.Since(initialInsideRoutine))
 
 }

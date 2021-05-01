@@ -31,7 +31,7 @@ func TestRenderTemplate(t *testing.T) {
 	}
 
 	receptor := new(bytes.Buffer)
-	err := renderTemplate(testerTemplate, data, receptor)
+	err := renderTemplate(testerTemplate, data, templateFuncs, receptor)
 
 	assert.Equal(t, nil, err)
 	assert.Equal(t, expected, receptor.String())

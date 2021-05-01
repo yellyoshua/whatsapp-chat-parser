@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
 	"github.com/yellyoshua/whatsapp-chat-parser/middleware"
 	"github.com/yellyoshua/whatsapp-chat-parser/storage"
+	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
 
 func setupEnvironments() {
@@ -47,12 +49,26 @@ func setupFolders() {
 	}
 }
 
+func checkChatParserCLI() {
+	output, err := exec.Command(constants.CLI_WP_PARSER, "--is-ok").Output()
+	if err != nil {
+		logger.Fatal("error executing [%s] CLI command -> %s", constants.CLI_WP_PARSER, err.Error())
+	} else {
+		message := string(output[:])
+
+		if noOkey := !utils.IsEqualString(message, "ok"); noOkey {
+			logger.Fatal("[%s] CLI is not installed, output -> %s", constants.CLI_WP_PARSER, message)
+		}
+	}
+}
+
 func notExistFolder(path string) bool {
 	_, err := os.Stat(path)
 	return os.IsNotExist(err)
 }
 
 func main() {
+	checkChatParserCLI()
 	setupFolders()
 	setupEnvironments()
 

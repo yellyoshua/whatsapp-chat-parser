@@ -51,17 +51,17 @@ func FilterQRFilesExtensions(files map[string]io.Reader, qr_files_path chan map[
 	qr_files_path <- qrFilesPaths
 }
 
-func GenerateQR(qr_files_path <-chan map[string]string, files_replaced_with_qr chan map[string]io.Reader, wg *sync.WaitGroup) {
+func GenerateQR(attachmentURL string, qr_files_path <-chan map[string]string, files_replaced_with_qr chan<- map[string]io.Reader, wg *sync.WaitGroup) {
 	qrPaths := <-qr_files_path
 
 	defer wg.Done()
 
 	var qrFiles map[string]io.Reader = make(map[string]io.Reader)
 
-	for _, qrHashPathFile := range qrPaths {
+	for path_file, qrHashPathFile := range qrPaths {
 
 		if len(qrHashPathFile) != 0 {
-			q, _ := qrcode.New(qrHashPathFile, qrcode.High)
+			q, _ := qrcode.New(path.Join(attachmentURL, path_file), qrcode.High)
 			qrImage, _ := q.PNG(256)
 			qrFiles[qrHashPathFile] = bytes.NewReader(qrImage)
 		}
@@ -86,7 +86,7 @@ func ExtractChatFromFiles(files map[string]io.Reader, chChat chan string, wg *sy
 	chChat <- chat
 }
 
-func ParseWhatsappChatMessages(user_id string, chat string, qr_files map[string]string, attachmentURL string) (paper.Book, error) {
+func ParseWhatsappChatMessages(user_id string, chat string, attachmentFiles map[string]string, attachmentURL string) (paper.Book, error) {
 	var messages string
 	wp := whatsapp.New()
 	writer := paper.New()
@@ -97,6 +97,6 @@ func ParseWhatsappChatMessages(user_id string, chat string, qr_files map[string]
 		return nil, err
 	}
 
-	book := writer.UnmarshalMessagesAndSort(messages, qr_files, attachmentURL)
+	book := writer.UnmarshalMessagesAndSort(messages, attachmentFiles, attachmentURL)
 	return book, nil
 }

@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"os"
-	"path/filepath"
+	"path"
 	"reflect"
 	"strings"
 
@@ -18,7 +18,11 @@ import (
 
 // UniqLowerCase convert in lowecase
 func UniqLowerCase(input string) string {
-	return strings.ToLower(input)
+	return strings.ToLower(strings.TrimSpace(input))
+}
+
+func IsEqualString(a string, b string) bool {
+	return UniqLowerCase(a) == UniqLowerCase(b)
 }
 
 // LowerCase convert many inputs in lowecase
@@ -107,7 +111,7 @@ func ExtractZipFile(f multipart.File, size int64) (map[string]io.Reader, error) 
 	for _, zipFile := range reader.File {
 		var customReader bytes.Buffer
 		f, _ := zipFile.Open()
-		fileURL := filepath.Join(zipFile.Name)
+		fileURL := path.Join(zipFile.Name)
 
 		if err := CopyReader(f, &customReader); err != nil {
 			return dst, err

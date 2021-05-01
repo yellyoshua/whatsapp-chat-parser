@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"path/filepath"
+	"path"
 	"sync"
 	"time"
 
@@ -63,7 +63,7 @@ func PostUploadChatFiles(ctx *gin.Context) {
 	responseFormat, _ := ctx.Params.Get("format")
 
 	uuid := utils.NewUniqueID()
-	attachmentsURL := filepath.Join(attachmentURL, uuid)
+	attachmentsURL := path.Join(attachmentURL, uuid)
 	ctx.Request.ParseMultipartForm(10 << 20)
 	file, header, _ := ctx.Request.FormFile("file")
 
@@ -94,7 +94,7 @@ func PostUploadChatFiles(ctx *gin.Context) {
 			wgChat.Add(1)
 			go api.FilterQRFilesExtensions(filesToFilterQR, chQRFilesPath, &wgChat)
 			wgChat.Add(1)
-			go api.GenerateQR(chQRFilesPath, chFilesReplacedWithQR, &wgChat)
+			go api.GenerateQR(attachmentsURL, chQRFilesPath, chFilesReplacedWithQR, &wgChat)
 
 			var chat string
 			var qrFilesPath map[string]string
@@ -109,6 +109,15 @@ func PostUploadChatFiles(ctx *gin.Context) {
 			chat = <-chChat
 			qrFilesPath = <-chQRFilesPath
 			qrFiles := <-chFilesReplacedWithQR
+
+			var mergedFiles map[string]string = make(map[string]string)
+			mergedFiles = qrFilesPath
+
+			for file_path := range filesToScanText {
+				if len(mergedFiles[file_path]) == 0 {
+					mergedFiles[file_path] = file_path
+				}
+			}
 
 			// TODO: upload files in background
 			var chUploads chan error = make(chan error)
@@ -125,7 +134,7 @@ func PostUploadChatFiles(ctx *gin.Context) {
 				close(chUploads)
 			}(chUploads)
 
-			book, err := api.ParseWhatsappChatMessages(uuid, chat, qrFilesPath, attachmentsURL)
+			book, err := api.ParseWhatsappChatMessages(uuid, chat, mergedFiles, attachmentsURL)
 
 			if err != nil {
 				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
@@ -216,7 +225,7 @@ func uploadFilesS3(uuid string, files map[string]io.Reader, chUploads chan error
 	for file_path, f := range files {
 		copyOfFile := new(bytes.Buffer)
 		if err := utils.CopyReader(f, copyOfFile); err == nil {
-			files_copy[filepath.Join(uuid, file_path)] = copyOfFile
+			files_copy[path.Join(uuid, file_path)] = copyOfFile
 		}
 	}
 
@@ -228,5 +237,4 @@ func uploadFilesS3(uuid string, files map[string]io.Reader, chUploads chan error
 	} else {
 		chUploads <- nil
 	}
-	chUploads <- nil
 }

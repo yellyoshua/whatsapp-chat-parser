@@ -26,7 +26,7 @@ package main
 import (
 	"io/ioutil"
 	"log"
-	"path/filepath"
+	"path"
 
 	"github.com/yellyoshua/whatsapp-chat-parser/paper"
 	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
@@ -58,7 +58,7 @@ func main() {
 
 	book := writer.UnmarshalMessagesAndSort(
 		plainMessages,
-		filepath.Join("http://localhost:4000/public"),
+		path.Join("http://localhost:4000/public"),
 	)
 
 	messages := book.Export()

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/yellyoshua/whatsapp-chat-parser/constants"
 )
 
 // RegexContact format input `$date - Carlos perez: $message`
@@ -49,9 +51,8 @@ func getTempChat(user_id string) string {
 	}
 }
 
-var empty_chat = ""
-
 func (r *rawbuilder) ChatParser(user_id string, chat []byte) Parser {
+	var empty_chat = ""
 	chatTemp := getTempChat(user_id)
 	tempPath := getTempChat("")
 
@@ -75,7 +76,7 @@ func (r *rawbuilder) ChatParser(user_id string, chat []byte) Parser {
 		return &parserstruct{chat: &empty_chat, err: errCloseTempChat}
 	}
 
-	parsedChat, errChatParser := exec.Command("chat-parser", chatTemp).Output()
+	parsedChat, errChatParser := exec.Command(constants.CLI_WP_PARSER, chatTemp).Output()
 	if errChatParser != nil {
 		return &parserstruct{chat: &empty_chat, err: errChatParser}
 	}
