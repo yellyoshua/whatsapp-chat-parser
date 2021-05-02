@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -204,10 +203,6 @@ func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentF
 		}
 		messages = append(messages, currentMessage)
 	}
-
-	sort.SliceStable(messages, func(i, j int) bool {
-		return messages[i].Date < messages[j].Date
-	})
 
 	return &export{
 		messages: messages,
