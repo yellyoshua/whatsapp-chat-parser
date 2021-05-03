@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -15,9 +16,12 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
 )
 
+type LocationURL = string
+
 // Uploader __
 type Uploader interface {
-	UploadFiles(map[string]io.Reader) error
+	UploadFiles(files map[string]io.Reader) error
+	UploadOne(file_path string, file io.Reader) (LocationURL, error)
 }
 
 type uploader struct {
@@ -46,6 +50,21 @@ func New() Uploader {
 	}
 }
 
+func (u *uploader) UploadOne(file_path string, file io.Reader) (LocationURL, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	upParams := &s3manager.UploadInput{
+		Bucket: u.s3Bucket,
+		Key:    aws.String(file_path),
+		ACL:    aws.String("public-read"), // TODO: Set public files
+		Body:   file,
+	}
+
+	s, err := u.s3Uploader.UploadWithContext(ctx, upParams)
+	return s.Location, err
+}
+
 func (u *uploader) UploadFiles(files map[string]io.Reader) error {
 	var chError chan error = make(chan error)
 	var wg sync.WaitGroup
@@ -55,7 +74,7 @@ func (u *uploader) UploadFiles(files map[string]io.Reader) error {
 		ctx := context.TODO()
 		upParams := &s3manager.UploadInput{
 			Bucket: u.s3Bucket,
-			Key:    &fullPath,
+			Key:    aws.String(fullPath),
 			ACL:    aws.String("public-read"), // TODO: Set public files
 			Body:   f,
 		}

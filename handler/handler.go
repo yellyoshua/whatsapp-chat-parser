@@ -227,9 +227,9 @@ func uploadFilesS3(uuid string, files map[string]io.Reader, chUploads chan error
 		}
 	}
 
-	st := storage.New()
+	bucket := storage.New()
 
-	if err := st.UploadFiles(files_copy); err != nil {
+	if err := bucket.UploadFiles(files_copy); err != nil {
 		logger.Info("error uploading files -> %s", err)
 		chUploads <- err
 	} else {
