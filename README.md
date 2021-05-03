@@ -56,7 +56,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	book := writer.UnmarshalMessagesAndSort(
+	book := writer.UnmarshalJSONMessages(
 		plainMessages,
 		path.Join("http://localhost:4000/public"),
 	)

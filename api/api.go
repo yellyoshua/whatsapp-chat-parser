@@ -97,6 +97,6 @@ func ParseWhatsappChatMessages(user_id string, chat string, attachmentFiles map[
 		return nil, err
 	}
 
-	book := writer.UnmarshalMessagesAndSort(messages, attachmentFiles, attachmentURL)
+	book := writer.UnmarshalJSONMessages(messages, attachmentFiles, attachmentURL)
 	return book, nil
 }

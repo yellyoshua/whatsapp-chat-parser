@@ -218,8 +218,6 @@ func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string, uui
 
 // TODO: Retorna un [signal: killed] de error
 func uploadFilesS3(uuid string, files map[string]io.Reader, chUploads chan error) {
-	// st := *clientStorage
-
 	files_copy := make(map[string]io.Reader)
 
 	for file_path, f := range files {

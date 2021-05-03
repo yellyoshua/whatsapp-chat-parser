@@ -47,6 +47,19 @@ func bookStyle() string {
       column-fill: auto;
     }
 
+    .info-message-container {
+      justify-content: center !important;
+      padding: 10px 0px !important;
+    }
+
+    .info-message-container p {
+      background: darkred !important;
+      color: white !important;
+      padding: 5px 10px !important;
+      border-radius: 5px !important;
+      font-size: 13px !important;
+    }
+
     .receiver-message-container {
       margin-right: 5%;
       justify-content: flex-end;
@@ -190,6 +203,16 @@ func cardImage() string {
 	return cardImagePreview
 }
 
+// info-message-container
+func cardChatInfo() string {
+	cardSender := `{{ if .IsInfo -}}
+<div class="pg-break message-container info-message-container">
+  <p>{{.Message}}</p>
+</div>
+{{ end }}`
+	return cardSender
+}
+
 func cardChatSender() string {
 	cardSender := `{{ if .IsSender -}}
 <div class="pg-break message-container sender-message-container">
@@ -223,6 +246,7 @@ func cardChatReceiver() string {
 func bookWrapperChats() string {
 	mappingMessages := `
   {{- range .Messages }}
+  ` + cardChatInfo() + `
   ` + cardChatSender() + `
   ` + cardChatReceiver() + `
 	{{ end }}

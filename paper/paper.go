@@ -3,6 +3,7 @@ package paper
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html"
 	"html/template"
 	"io"
@@ -14,7 +15,28 @@ import (
 
 	"github.com/urakozz/go-emoji"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
+	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
+
+var translations = map[string]interface{}{
+	"es": map[string]interface{}{
+		"months": map[string]string{
+			"01": "Enero",
+			"02": "Febrero",
+			"03": "Marzo",
+			"04": "Abril",
+			"05": "Mayo",
+			"06": "Junio",
+			"07": "Julio",
+			"08": "Agosto",
+			"09": "Septiembre",
+			"10": "Octubre",
+			"11": "Noviembre",
+			"12": "Diciembre",
+		},
+		"date_template": "%s %s, %s",
+	},
+}
 
 // Type _
 type Type func(messages []Message) *BookData
@@ -80,7 +102,7 @@ type MessagesJSON struct {
 
 // Writer _
 type Writer interface {
-	UnmarshalMessagesAndSort(plainMessages string, attachmentFiles map[string]string, attachmentURL string) Book
+	UnmarshalJSONMessages(json_messages string, attachmentFiles map[string]string, attachmentURL string) Book
 }
 
 type writertruct struct{}
@@ -125,25 +147,50 @@ func parserDate(date string) (string, string, string, string) {
 	return month, day, year, hours
 }
 
-func (p *writertruct) UnmarshalMessagesAndSort(plainMessages string, attachmentFiles map[string]string, attachmentURL string) Book {
+func getTranslateDate(lang string, month string, day string, year string) string {
+	t, _ := translations[lang].(map[string]interface{})
 
+	months, _ := t["months"].(map[string]string)
+	date_template, _ := t["date_template"].(string)
+
+	return fmt.Sprintf(date_template, months[month], day, year)
+}
+
+func (p *writertruct) UnmarshalJSONMessages(json_messages string, attachmentFiles map[string]string, attachmentURL string) Book {
+	var language = "es"
 	var temporalMessages []Message
 	var messages []Message
 
-	json.Unmarshal([]byte(plainMessages), &temporalMessages)
+	json.Unmarshal([]byte(json_messages), &temporalMessages)
 
 	var sender string
 	var receiver string
+	var lastDate string
 
 	// TODO: color to the badge of the name of the Author
 	// sample: https://www.beautypunk.com/wp-content/uploads/2016/11/whatsapp-zapptales-buecher.jpg
 
-	// TODO: parse date and create a badge that show a message with the date [April 15, 2021]
-
 	emojiConvert := emoji.NewEmojiParser()
 
 	for _, m := range temporalMessages {
-		_, _, _, hours := parserDate(m.Date)
+		month, day, year, hours := parserDate(m.Date)
+		currentDate := fmt.Sprintf("%s_%s_%s", month, day, year)
+
+		if len(lastDate) == 0 || !utils.IsEqualString(currentDate, lastDate) {
+			badgeMessagesDate := Message{
+				Date:       hours,
+				Author:     m.Author,
+				Message:    getTranslateDate(language, month, day, year),
+				Attachment: Attachment{},
+				IsSender:   false,
+				IsReceiver: false,
+				IsInfo:     true,
+			}
+
+			messages = append(messages, badgeMessagesDate)
+		}
+
+		lastDate = currentDate
 		messageValue := emojiConvert.ToHtmlEntities(m.Message)
 
 		if notBeDefined := len(sender) == 0; notBeDefined && m.Author != receiver {
