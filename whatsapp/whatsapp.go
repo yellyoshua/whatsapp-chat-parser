@@ -22,7 +22,7 @@ var RegexTextAttachment string = `\(file attached\)`
 
 // RawBuilder _
 type RawBuilder interface {
-	ChatParser(user_id string, chat []byte) Parser
+	ChatParser(user_id string, chat []byte) (Parser, error)
 }
 
 type rawbuilder struct{}
@@ -33,7 +33,6 @@ type Parser interface {
 }
 
 type parserstruct struct {
-	err  error
 	chat *string
 }
 
@@ -51,47 +50,47 @@ func getTempChat(user_id string) string {
 	}
 }
 
-func (r *rawbuilder) ChatParser(user_id string, chat []byte) Parser {
-	var empty_chat = ""
+func (r *rawbuilder) ChatParser(user_id string, chat []byte) (Parser, error) {
+	var chatValue string
 	chatTemp := getTempChat(user_id)
 	tempPath := getTempChat("")
 
 	err := os.MkdirAll(tempPath, os.ModeDir)
 	if err != nil {
-		return &parserstruct{chat: &empty_chat, err: err}
+		return &parserstruct{chat: &chatValue}, err
 	}
 
 	f, errInitTempFile := os.Create(chatTemp)
 	if errInitTempFile != nil {
-		return &parserstruct{chat: &empty_chat, err: errInitTempFile}
+		return &parserstruct{chat: &chatValue}, errInitTempFile
+	}
+
+	if errCHMod := f.Chmod(0777); errCHMod != nil {
+		return &parserstruct{chat: &chatValue}, errCHMod
 	}
 
 	_, errorWrite := f.Write([]byte(byteToStringMessages(chat)))
 	if errorWrite != nil {
-		return &parserstruct{chat: &empty_chat, err: errorWrite}
+		return &parserstruct{chat: &chatValue}, errorWrite
 	}
 
 	errCloseTempChat := f.Close()
 	if errCloseTempChat != nil {
-		return &parserstruct{chat: &empty_chat, err: errCloseTempChat}
+		return &parserstruct{chat: &chatValue}, errCloseTempChat
 	}
 
 	parsedChat, errChatParser := exec.Command(constants.CLI_WP_PARSER, chatTemp).Output()
 	if errChatParser != nil {
-		return &parserstruct{chat: &empty_chat, err: errChatParser}
+		return &parserstruct{chat: &chatValue}, errChatParser
 	}
 
-	chatValue := string(parsedChat[:])
+	chatValue = string(parsedChat[:])
 
-	return &parserstruct{chat: &chatValue}
+	return &parserstruct{chat: &chatValue}, nil
 }
 
 // ParserMessages _
 func (p *parserstruct) ParserMessages(outputMessages *string) error {
-	if p.err != nil {
-		return p.err
-	}
-
 	*outputMessages = *p.chat
 	return nil
 }

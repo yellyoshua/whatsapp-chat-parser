@@ -79,7 +79,10 @@ func ParseWhatsappChatMessages(user_id string, chat string, attachmentFiles map[
 	wp := whatsapp.New()
 	writer := paper.New()
 
-	rawChat := wp.ChatParser(user_id, []byte(chat))
+	rawChat, errChatParser := wp.ChatParser(user_id, []byte(chat))
+	if errChatParser != nil {
+		return nil, errChatParser
+	}
 
 	if err := rawChat.ParserMessages(&messages); err != nil {
 		return nil, err

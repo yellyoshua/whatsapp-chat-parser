@@ -59,7 +59,10 @@ func TestParserMessages(t *testing.T) {
 	wp := New()
 	uuid := "demo-" + utils.NewUniqueID()
 
-	rawChat := wp.ChatParser(uuid, []byte(inputMessages))
+	rawChat, errChatParser := wp.ChatParser(uuid, []byte(inputMessages))
+	if errChatParser != nil {
+		t.Errorf("error parsing chat -> " + errChatParser.Error())
+	}
 
 	if err := rawChat.ParserMessages(&outputMessages); err != nil {
 		t.Errorf("error parsing messages -> " + err.Error())
