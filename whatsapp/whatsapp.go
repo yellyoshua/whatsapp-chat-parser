@@ -52,7 +52,7 @@ func getTempChat(user_id string) string {
 
 func createFile(path_file string, data []byte) error {
 
-	f, err := os.OpenFile(path_file, os.O_WRONLY, 0777)
+	f, err := os.OpenFile(path_file, os.O_WRONLY, os.ModeTemporary)
 	if err != nil {
 		return err
 	}
