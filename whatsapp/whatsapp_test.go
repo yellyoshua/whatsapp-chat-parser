@@ -1,6 +1,7 @@
 package whatsapp
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,6 +54,21 @@ func TestReplaceAttachment(t *testing.T) {
 	attachmentNoSpaces()
 	attachmentWithSpaces()
 }
+
+func TestCreateFile(t *testing.T) {
+	pwd := getTempChat("hola-mundo")
+	temp := getTempChat("")
+
+	errDir := os.MkdirAll(temp, os.ModeDir)
+	if errDir != nil {
+		t.Error(errDir)
+	}
+
+	if err := createFile(pwd, []byte("Hola mundo")); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestParserMessages(t *testing.T) {
 	var outputMessages string
 
@@ -61,12 +77,10 @@ func TestParserMessages(t *testing.T) {
 
 	rawChat, errChatParser := wp.ChatParser(uuid, []byte(inputMessages))
 	if errChatParser != nil {
-		t.Errorf("error parsing chat -> " + errChatParser.Error())
+		t.Error(errChatParser)
 	}
 
 	if err := rawChat.ParserMessages(&outputMessages); err != nil {
 		t.Errorf("error parsing messages -> " + err.Error())
 	}
-
-	// assert.Equal(t, true, len(outputMessages) > 0)
 }
