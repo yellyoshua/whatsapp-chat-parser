@@ -13,6 +13,7 @@ test:
 	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/whatsapp
 	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/utils
 	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/paper
+	go test -timeout 30s github.com/yellyoshua/whatsapp-chat-parser/handler
 
 clean-dependencies:
 	go mod tidy

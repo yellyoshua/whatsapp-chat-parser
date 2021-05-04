@@ -16,7 +16,6 @@ const (
 )
 
 const (
-	KEY_MIDDLEWARE_CLIENT_STORAGE = "client_storage"
 	KEY_MIDDLEWARE_ATTACHMENT_URL = "attachment_url"
 )
 

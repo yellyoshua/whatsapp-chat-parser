@@ -14,7 +14,6 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/handler"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
 	"github.com/yellyoshua/whatsapp-chat-parser/middleware"
-	"github.com/yellyoshua/whatsapp-chat-parser/storage"
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
 
@@ -72,21 +71,21 @@ func main() {
 	setupFolders()
 	setupEnvironments()
 
+	h := handler.New()
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
 	port := os.Getenv("PORT")
-	clientStorage := storage.New()
 
 	exit := make(chan bool)
 	go handleInterrupt(exit)
 
-	router.GET("/", handler.HolyShit)
+	router.GET("/", h.HolyShit)
 
-	whatsappHandler := router.Group("/whatsapp").Use(middleware.InjectDependencies(&clientStorage))
+	whatsappHandler := router.Group("/whatsapp").Use(middleware.InjectDependencies())
 
-	whatsappHandler.POST("/:format/chat", middleware.ParseFullChatZIP, handler.PostUploadChatFiles)
+	whatsappHandler.POST("/:format/chat", middleware.ParseFullChatZIP, h.PostUploadChatFiles)
 	whatsappHandler.POST("/:format/messages", middleware.ParseOnlyChat, handler.PostParseOnlyChat)
 
 	if noPort := len(port) == 0; noPort {
@@ -121,6 +120,7 @@ func main() {
 
 func handleInterrupt(exit chan bool) {
 	ch := make(chan os.Signal)
+	// the channel used with signal.Notify should be buffered (SA1017)
 	signal.Notify(ch, os.Interrupt)
 	<-ch
 

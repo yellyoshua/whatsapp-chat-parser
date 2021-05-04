@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yellyoshua/whatsapp-chat-parser/constants"
-	"github.com/yellyoshua/whatsapp-chat-parser/storage"
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
 
@@ -23,11 +22,10 @@ func abortConnection(ctx *gin.Context) {
 	}
 }
 
-func InjectDependencies(clientStorage *storage.Uploader) gin.HandlerFunc {
+func InjectDependencies() gin.HandlerFunc {
 	attachmentURL := utils.GetAttachmentURL()
 
 	return func(ctx *gin.Context) {
-		ctx.Set(constants.KEY_MIDDLEWARE_CLIENT_STORAGE, clientStorage)
 		ctx.Set(constants.KEY_MIDDLEWARE_ATTACHMENT_URL, attachmentURL)
 		ctx.Next()
 	}
