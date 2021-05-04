@@ -50,6 +50,19 @@ func getTempChat(user_id string) string {
 	}
 }
 
+func createFile(path_file string, data []byte) error {
+
+	f, err := os.OpenFile(path_file, os.O_WRONLY, 0777)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	_, err = f.Write(data)
+	return err
+}
+
 func (r *rawbuilder) ChatParser(user_id string, chat []byte) (Parser, error) {
 	var chatValue string
 	chatTemp := getTempChat(user_id)
@@ -60,24 +73,29 @@ func (r *rawbuilder) ChatParser(user_id string, chat []byte) (Parser, error) {
 		return &parserstruct{chat: &chatValue}, err
 	}
 
-	f, errInitTempFile := os.Create(chatTemp)
-	if errInitTempFile != nil {
-		return &parserstruct{chat: &chatValue}, errInitTempFile
+	errFileCreation := createFile(chatTemp, []byte(byteToStringMessages(chat)))
+	if errFileCreation != nil {
+		return &parserstruct{chat: &chatValue}, errFileCreation
 	}
 
-	if errCHMod := f.Chmod(0777); errCHMod != nil {
-		return &parserstruct{chat: &chatValue}, errCHMod
-	}
+	// f, errInitTempFile := os.Create(chatTemp)
+	// if errInitTempFile != nil {
+	// 	return &parserstruct{chat: &chatValue}, errInitTempFile
+	// }
 
-	_, errorWrite := f.Write([]byte(byteToStringMessages(chat)))
-	if errorWrite != nil {
-		return &parserstruct{chat: &chatValue}, errorWrite
-	}
+	// if errCHMod := f.Chmod(0777); errCHMod != nil {
+	// 	return &parserstruct{chat: &chatValue}, errCHMod
+	// }
 
-	errCloseTempChat := f.Close()
-	if errCloseTempChat != nil {
-		return &parserstruct{chat: &chatValue}, errCloseTempChat
-	}
+	// _, errorWrite := f.Write([]byte(byteToStringMessages(chat)))
+	// if errorWrite != nil {
+	// 	return &parserstruct{chat: &chatValue}, errorWrite
+	// }
+
+	// errCloseTempChat := f.Close()
+	// if errCloseTempChat != nil {
+	// 	return &parserstruct{chat: &chatValue}, errCloseTempChat
+	// }
 
 	parsedChat, errChatParser := exec.Command(constants.CLI_WP_PARSER, chatTemp).Output()
 	if errChatParser != nil {
