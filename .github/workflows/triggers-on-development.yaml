@@ -1,4 +1,4 @@
-name: Pipeline testing with golang
+name: Pipeline testing
 
 on:
   push:

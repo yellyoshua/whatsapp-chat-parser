@@ -4,7 +4,7 @@
 
 <a href="https://www.buymeacoffee.com/yellyoshua" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="41" width="174" ></a>
 
-> `Actualizado 10 de mayo del 2021`
+> `Actualizado 11 de mayo del 2021`
 
 # Introducci&oacute;n
 
@@ -42,7 +42,7 @@ import (
 )
 
 func readFile(filename string) []byte {
-	data, err := ioutil.ReadFile("test.txt")
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func main() {
 	uuid := "1e3e4e5e6e7e8e9e10e"
 	
 	chatBuilder := whatsapp.New(uuid, whatsappChat)
-	messages:= chatBuilder..Messages()
+	messages:= chatBuilder.Messages()
 
 	log.Printf("Se procesaron %v messages", len(messages))
 	log.Printf("%s - %s - %s",
