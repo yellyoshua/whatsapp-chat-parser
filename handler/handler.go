@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yellyoshua/whatsapp-chat-parser/api"
@@ -18,10 +17,6 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
 )
-
-func hardWork() {
-	time.Sleep(time.Duration(5) * time.Second)
-}
 
 type Handl struct {
 	clientStorage storage.Uploader
@@ -62,6 +57,7 @@ func (h *Handl) backgroundUploadFiles(ctx *gin.Context, uuid string, attachments
 		}
 
 		err := uploadFilesS3(h.clientStorage, uuid, files)
+		logger.Info("is uploaded %v files", len(files))
 
 		isDone <- err
 		close(isDone)
@@ -143,18 +139,13 @@ func (h *Handl) PostUploadChatFiles(ctx *gin.Context) {
 
 			h.backgroundUploadFiles(ctxCopy, uuid, attachmentsURL, mergedFiles)
 
-			chatBuilder := whatsapp.New()
-			messages, err := chatBuilder.Parser(uuid, []byte(chat))
+			chatBuilder := whatsapp.New(uuid, chat)
+			messages := chatBuilder.Messages()
 
 			writer := paper.New(messages)
 			book := writer.AttachFiles(mergedFiles, attachmentsURL)
 
-			if err != nil {
-				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
-				closeConnection(ctx)
-			} else {
-				resWithFormat(ctx, book, responseFormat, uuid)
-			}
+			resWithFormat(ctx, book, responseFormat, uuid)
 		}
 	}
 }
@@ -169,19 +160,14 @@ func PostParseOnlyChat(ctx *gin.Context) {
 
 	chat := api.ExtractChatFromFiles(files)
 
-	chatBuilder := whatsapp.New()
-	messages, err := chatBuilder.Parser(uuid, []byte(chat))
+	chatBuilder := whatsapp.New(uuid, chat)
+	messages := chatBuilder.Messages()
 
 	writer := paper.New(messages)
 	book := writer.AttachFiles(nil, "/")
 
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
-		closeConnection(ctx)
-	} else {
-		responseFormat, _ := ctx.Params.Get("format")
-		resWithFormat(ctx, book, responseFormat, uuid)
-	}
+	responseFormat, _ := ctx.Params.Get("format")
+	resWithFormat(ctx, book, responseFormat, uuid)
 }
 
 func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string, uuid string) {
@@ -230,8 +216,6 @@ func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string, uui
 
 func uploadFilesS3(bucket storage.Uploader, uuid string, files map[string]io.Reader) error {
 	files_copy := make(map[string]io.Reader)
-
-	logger.Info("is uploading %v files", len(files))
 
 	for file_path, f := range files {
 		copyOfFile := new(bytes.Buffer)
