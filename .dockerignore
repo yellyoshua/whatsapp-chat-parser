@@ -5,3 +5,4 @@ whatsapp-chat-parser
 samples/
 .env.production
 .env.local
+.vscode/

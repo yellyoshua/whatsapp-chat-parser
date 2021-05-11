@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,32 +16,66 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/paper"
 	"github.com/yellyoshua/whatsapp-chat-parser/storage"
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
+	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
 )
 
-func HolyShit(ctx *gin.Context) {
-	defer ctx.Done()
-	var ch chan string = make(chan string)
-	// ctxCopy := ctx.Copy()
+func hardWork() {
+	time.Sleep(time.Duration(5) * time.Second)
+}
 
-	go func(ch chan string) {
-		time.Sleep(time.Second * time.Duration(4))
-		ch <- "Holy shit!"
-	}(ch)
+type Handl struct {
+	clientStorage storage.Uploader
+}
 
-	go func(ch chan string) {
-		time.Sleep(time.Second * time.Duration(5))
-		ch <- "Holy shit 2!"
-	}(ch)
+func New() *Handl {
+	clientStorage := storage.New()
+	return &Handl{clientStorage: clientStorage}
+}
 
-	go func(ch chan string) {
+func isQRFile(file_path string) bool {
+	return strings.Contains(file_path, "qr/")
+}
 
-		for m := range ch {
-			logger.Info(m)
+// merged_files_path includes a map with names of files and qr_files
+func (h *Handl) backgroundUploadFiles(ctx *gin.Context, uuid string, attachmentsURL string, merged_files_path map[string]string) {
+	file, header, _ := ctx.Request.FormFile("file")
+
+	filesInZip, _ := utils.ExtractZipFile(file, header.Size)
+	defer file.Close()
+
+	var uploadsQueue chan string = make(chan string)
+	var isDone chan error = make(chan error)
+	var qr_files_paths map[string]string = make(map[string]string)
+
+	for path_origin, http_uri := range merged_files_path {
+		if isQRFile(http_uri) {
+			qr_files_paths[path_origin] = http_uri
+		}
+	}
+
+	go func(files map[string]io.Reader, ch <-chan string, isDone chan<- error) {
+		uuid := <-ch
+		qr_files := api.GenerateQR(attachmentsURL, qr_files_paths)
+
+		for file_path, qr_file := range qr_files {
+			filesInZip[file_path] = qr_file
 		}
 
-		close(ch)
-	}(ch)
+		err := uploadFilesS3(h.clientStorage, uuid, files)
 
+		isDone <- err
+		close(isDone)
+	}(filesInZip, uploadsQueue, isDone)
+
+	go func(uuid string, ch chan<- string, isDone <-chan error) {
+		ch <- uuid
+		close(uploadsQueue)
+		<-isDone
+	}(uuid, uploadsQueue, isDone)
+}
+
+func (h *Handl) HolyShit(ctx *gin.Context) {
+	defer ctx.Done()
 	ctx.String(200, "Holy shit!")
 }
 
@@ -50,18 +84,15 @@ func closeConnection(ctx *gin.Context) {
 	ctx.Done()
 }
 
-func PostUploadChatFiles(ctx *gin.Context) {
-	// var clientStorage *storage.Uploader
+func (h *Handl) PostUploadChatFiles(ctx *gin.Context) {
 	var attachmentURL string
 
-	// client_storage, _ := ctx.Get(constants.KEY_MIDDLEWARE_CLIENT_STORAGE)
 	attachment_url, _ := ctx.Get(constants.KEY_MIDDLEWARE_ATTACHMENT_URL)
-
-	// clientStorage = client_storage.(*storage.Uploader)
 	attachmentURL = attachment_url.(string)
 
 	responseFormat, _ := ctx.Params.Get("format")
 
+	ctxCopy := ctx.Copy()
 	uuid := utils.NewUniqueID()
 	attachmentsURL := path.Join(attachmentURL, uuid)
 	ctx.Request.ParseMultipartForm(10 << 20)
@@ -75,40 +106,31 @@ func PostUploadChatFiles(ctx *gin.Context) {
 		closeConnection(ctx)
 	} else {
 		var filesToScanText map[string]io.Reader = make(map[string]io.Reader)
-		var filesToUpload map[string]io.Reader = make(map[string]io.Reader)
 		var filesToFilterQR map[string]io.Reader = make(map[string]io.Reader)
 
-		if err := utils.DuplicateReaders(filesInZip, filesToUpload, filesToScanText, filesToFilterQR); err != nil {
+		if err := utils.DuplicateReaders(filesInZip, filesToScanText, filesToFilterQR); err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error duplicating readers")
 			closeConnection(ctx)
 		} else {
 
-			var chChat chan string = make(chan string)
-			var chFilesReplacedWithQR chan map[string]io.Reader = make(chan map[string]io.Reader)
-			var chQRFilesPath chan map[string]string = make(chan map[string]string)
-
-			var wgChat sync.WaitGroup
-
-			wgChat.Add(1)
-			go api.ExtractChatFromFiles(filesToScanText, chChat, &wgChat)
-			wgChat.Add(1)
-			go api.FilterQRFilesExtensions(filesToFilterQR, chQRFilesPath, &wgChat)
-			wgChat.Add(1)
-			go api.GenerateQR(attachmentsURL, chQRFilesPath, chFilesReplacedWithQR, &wgChat)
-
 			var chat string
 			var qrFilesPath map[string]string
 
-			go func() {
-				wgChat.Wait()
-				close(chChat)
-				close(chQRFilesPath)
-				close(chFilesReplacedWithQR)
-			}()
+			var isDone chan bool = make(chan bool)
 
-			chat = <-chChat
-			qrFilesPath = <-chQRFilesPath
-			qrFiles := <-chFilesReplacedWithQR
+			go func(isDone chan<- bool) {
+				chat = api.ExtractChatFromFiles(filesToScanText)
+				isDone <- true
+			}(isDone)
+
+			go func(isDone chan<- bool) {
+				qrFilesPath = api.FilterQRFilesExtensions(filesToFilterQR)
+				isDone <- true
+			}(isDone)
+
+			<-isDone
+			<-isDone
+			close(isDone)
 
 			var mergedFiles map[string]string = make(map[string]string)
 			mergedFiles = qrFilesPath
@@ -119,22 +141,13 @@ func PostUploadChatFiles(ctx *gin.Context) {
 				}
 			}
 
-			// TODO: upload files in background
-			var chUploads chan error = make(chan error)
-			go uploadFilesS3(uuid, filesToUpload, chUploads)
-			go uploadFilesS3(uuid, qrFiles, chUploads)
+			h.backgroundUploadFiles(ctxCopy, uuid, attachmentsURL, mergedFiles)
 
-			go func(chUploads chan error) {
-				for ch := range chUploads {
-					if ch != err {
-						logger.Info("Error uploading files -> " + ch.Error())
-					}
-				}
-				logger.Info("Files uploaded")
-				close(chUploads)
-			}(chUploads)
+			chatBuilder := whatsapp.New()
+			messages, err := chatBuilder.Parser(uuid, []byte(chat))
 
-			book, err := api.ParseWhatsappChatMessages(uuid, chat, mergedFiles, attachmentsURL)
+			writer := paper.New(messages)
+			book := writer.AttachFiles(mergedFiles, attachmentsURL)
 
 			if err != nil {
 				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
@@ -154,22 +167,20 @@ func PostParseOnlyChat(ctx *gin.Context) {
 		fileHeader.Filename: file,
 	}
 
-	var wg sync.WaitGroup
-	var chChat chan string = make(chan string)
-	wg.Add(1)
-	go api.ExtractChatFromFiles(files, chChat, &wg)
-	wg.Wait()
+	chat := api.ExtractChatFromFiles(files)
 
-	book, err := api.ParseWhatsappChatMessages(uuid, <-chChat, nil, "/")
+	chatBuilder := whatsapp.New()
+	messages, err := chatBuilder.Parser(uuid, []byte(chat))
 
-	defer close(chChat)
+	writer := paper.New(messages)
+	book := writer.AttachFiles(nil, "/")
 
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
 		closeConnection(ctx)
 	} else {
 		responseFormat, _ := ctx.Params.Get("format")
-		resWithFormat(ctx, book, responseFormat, "")
+		resWithFormat(ctx, book, responseFormat, uuid)
 	}
 }
 
@@ -178,6 +189,7 @@ func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string, uui
 	case constants.FormatJSON:
 		{
 			var result interface{}
+
 			messages, err := book.ExportJSON()
 
 			if err != nil {
@@ -216,9 +228,10 @@ func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string, uui
 	}
 }
 
-// TODO: Retorna un [signal: killed] de error
-func uploadFilesS3(uuid string, files map[string]io.Reader, chUploads chan error) {
+func uploadFilesS3(bucket storage.Uploader, uuid string, files map[string]io.Reader) error {
 	files_copy := make(map[string]io.Reader)
+
+	logger.Info("is uploading %v files", len(files))
 
 	for file_path, f := range files {
 		copyOfFile := new(bytes.Buffer)
@@ -226,13 +239,6 @@ func uploadFilesS3(uuid string, files map[string]io.Reader, chUploads chan error
 			files_copy[path.Join(uuid, file_path)] = copyOfFile
 		}
 	}
-
-	st := storage.New()
-
-	if err := st.UploadFiles(files_copy); err != nil {
-		logger.Info("error uploading files -> %s", err)
-		chUploads <- err
-	} else {
-		chUploads <- nil
-	}
+	err := bucket.UploadFiles(files_copy)
+	return err
 }

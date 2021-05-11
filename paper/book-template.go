@@ -1,5 +1,7 @@
 package paper
 
+var defaultBackground = "https://pixabay.com/get/gd65bc338cdeedc6c28405b7f756718e071a2a9214b211dd8174d6fc43ffeff1bd66abe2023f25f97c5a0ae529cbf1dfe_1920.jpg"
+
 func bookStyle() string {
 	stylesBook := `
   <style>
@@ -9,6 +11,14 @@ func bookStyle() string {
 			--default-bg-color: #ff4465;
     }
 
+    html {
+      height: 100vh;
+      background-image: url("` + defaultBackground + `");
+      background-position: center;
+      background-size: cover;
+      background-repeat: repeat;
+    }
+
     * {
       box-sizing: border-box;
       padding: 0;
@@ -16,7 +26,7 @@ func bookStyle() string {
       font-family: 'Noto Sans';
       font-weight: normal;
       font-style: normal;
-			background: var(--default-bg-color);
+			// background: var(--default-bg-color);
     }
 
     @page {
@@ -221,7 +231,7 @@ func cardChatSender() string {
 		<div class="message-author"><p>{{.Author}}</p></div>
     ` + cardImage() + `
 		<div class="message-message">{{.Message}}</div>
-		<div class="message-date"><p>{{.Date}}</p></div>
+		<div class="message-date"><p>{{formatDate .Date}}</p></div>
 	</div>
 </div>
 {{ end }}`
@@ -236,7 +246,7 @@ func cardChatReceiver() string {
     <div class="message-author"><p>{{.Author}}</p></div>
     ` + cardImage() + `
     <div class="message-message">{{.Message}}</div>
-    <div class="message-date"><p>{{.Date}}</p></div>
+    <div class="message-date"><p>{{formatDate .Date}}</p></div>
   </div>
 </div>
 {{ end }}`

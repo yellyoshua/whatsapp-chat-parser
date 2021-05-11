@@ -3,12 +3,15 @@ package utils
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math/bits"
 	"mime/multipart"
 	"os"
 	"path"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -141,4 +144,44 @@ func GetAttachmentURL() string {
 	}
 
 	return strings.Replace(s3AttachmentURL, "BUCKET_REGION", s3BucketRegion, -1)
+}
+
+func StringToInt(value string) int {
+	cleanValue := strings.TrimSpace(value)
+	num, _ := strconv.ParseInt(cleanValue, 0, 64)
+	return int(num)
+}
+
+func IntToString(value int) string {
+	return fmt.Sprintf("%v", value)
+}
+
+// PadStart (value = 10, pad_start = 2000, length = 4) -> 2010
+func PadStart(value string, pad_start string, length int) string {
+	var lengthValue uint = uint(len(value))
+	var lengthExpected uint = uint(length)
+
+	uintDiff, _ := bits.Sub(lengthExpected, lengthValue, 0)
+	lengthDifference := int(uintDiff)
+
+	var indexPad int = 1
+	var valuePadStart string
+
+	if lengthDifference > 0 {
+		for i := 0; i < lengthDifference; i++ {
+			if indexPad > len(pad_start) {
+				indexPad = 1
+			}
+
+			if indexPad == 1 {
+				valuePadStart = valuePadStart + pad_start[:indexPad]
+			} else {
+				valuePadStart = valuePadStart + pad_start[indexPad-1:indexPad]
+			}
+
+			indexPad++
+		}
+	}
+
+	return valuePadStart + value
 }

@@ -8,7 +8,11 @@ const (
 )
 
 const (
-	CLI_WP_PARSER string = "whatsapp-parser"
+	MESSAGE_INDEX_DATE        = 1
+	MESSAGE_INDEX_TIME        = 2
+	MESSAGE_INDEX_TIME_FORMAT = 3
+	MESSAGE_INDEX_AUTHOR      = 4
+	MESSAGE_INDEX_MESSAGE     = 5
 )
 
 const (
@@ -16,7 +20,6 @@ const (
 )
 
 const (
-	KEY_MIDDLEWARE_CLIENT_STORAGE = "client_storage"
 	KEY_MIDDLEWARE_ATTACHMENT_URL = "attachment_url"
 )
 

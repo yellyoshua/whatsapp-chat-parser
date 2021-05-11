@@ -27,17 +27,11 @@ var inputMessages string = `
 Jefecito ... un bug!!!!
 	`
 
-func TestByteToStringMessages(t *testing.T) {
-
-	messages := byteToStringMessages([]byte(inputMessages))
-
-	assert.Equal(t, true, len(messages) < len(inputMessages))
-}
 func TestReplaceAttachment(t *testing.T) {
 	attachmentNoSpaces := func() {
 		message := "3/19/20, 19:00 - Yoshua Lopez: IMG-20200319-WA0011.jpg (file attached)\nJefecito ... un bug!!!!"
 		expected := "3/19/20, 19:00 - Yoshua Lopez: <attached: IMG-20200319-WA0011.jpg>\nJefecito ... un bug!!!!"
-		withAttachment := replaceAttachment(message)
+		withAttachment := formatAttachment(message)
 
 		assert.Equal(t, expected, withAttachment)
 	}
@@ -45,7 +39,7 @@ func TestReplaceAttachment(t *testing.T) {
 	attachmentWithSpaces := func() {
 		message := "3/19/20, 19:00 - Yoshua Lopez: Frank sinatra.jpg (file attached)\nJefecito ... un bug!!!!"
 		expected := "3/19/20, 19:00 - Yoshua Lopez: <attached: Frank%20sinatra.jpg>\nJefecito ... un bug!!!!"
-		withAttachment := replaceAttachment(message)
+		withAttachment := formatAttachment(message)
 
 		assert.Equal(t, expected, withAttachment)
 	}
@@ -53,17 +47,59 @@ func TestReplaceAttachment(t *testing.T) {
 	attachmentNoSpaces()
 	attachmentWithSpaces()
 }
-func TestParserMessages(t *testing.T) {
-	var outputMessages string
 
+func TestParserMessages(t *testing.T) {
 	wp := New()
 	uuid := "demo-" + utils.NewUniqueID()
 
-	rawChat := wp.ChatParser(uuid, []byte(inputMessages))
+	_, errChatParser := wp.Parser(uuid, []byte(inputMessages))
+	if errChatParser != nil {
+		t.Error(errChatParser)
+	}
+}
 
-	if err := rawChat.ParserMessages(&outputMessages); err != nil {
-		t.Errorf("error parsing messages -> " + err.Error())
+func TestSplitChatMessages(t *testing.T) {
+	m := splitChatMessages("6/1/20, 23:07 - Yoshua: Que le pasó?")
+	assert.Equal(t, 1, len(m))
+
+	m1 := splitChatMessages(inputMessages)
+	assert.Equal(t, 19, len(m1))
+}
+
+func TestParsePlainMessages(t *testing.T) {
+	m := splitChatMessages("6/1/20, 23:07 - Yoshua: Que le pasó?")
+	rawMessages := parsePlainMessages(m)
+	assert.Equal(t, 1, len(rawMessages))
+
+	m1 := splitChatMessages(inputMessages)
+	rawMessages1 := parsePlainMessages(m1)
+	assert.Equal(t, 14, len(rawMessages1))
+}
+
+func TestRawMessagesToMessages(t *testing.T) {
+	m := splitChatMessages("6/1/20, 23:07 - Yoshua: Que le pasó?")
+	rawMessages := parsePlainMessages(m)
+	messages := rawMessagesToMessages(rawMessages)
+
+	assert.Equal(t, len(rawMessages)+1, len(messages))
+}
+
+func TestRegexDate(t *testing.T) {
+	chat := New()
+	messages, err := chat.Parser("demo-123", []byte("6/1/20, 23:07 - Yoshua: Que le pasó?"))
+	if err != nil {
+		t.Error(err)
 	}
 
-	// assert.Equal(t, true, len(outputMessages) > 0)
+	assert.Equal(t, 2, len(messages))
+}
+
+func TestGetTranslateDate(t *testing.T) {
+	expected := "Marzo 1, 2001"
+	dateParsed := getTranslateDate("es", 3, 1, 2001)
+	assert.Equal(t, expected, dateParsed)
+
+	expected1 := "Marzo 1, 2001"
+	dateParsed1 := getTranslateDate("es", 3, 1, 1)
+	assert.Equal(t, expected1, dateParsed1)
 }

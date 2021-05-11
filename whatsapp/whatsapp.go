@@ -2,146 +2,64 @@ package whatsapp
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/urakozz/go-emoji"
 	"github.com/yellyoshua/whatsapp-chat-parser/constants"
+	"github.com/yellyoshua/whatsapp-chat-parser/utils"
 )
-
-// RegexContact format input `$date - Carlos perez: $message`
-var RegexContact string = `(\d{1,2}/\d{1,2}/\d{2,4})+(, )[0-9:]+(.+?)(: )`
 
 // RegexAttachment format input `$date - $contact: IMG-20200319-WA0011.jpg (file attached)`
 var RegexAttachment string = `(: )+[\S\s]+(\.\w{2,4}\s)+\(+(file attached)+\)`
 
-// RegexTextAttachment format input `IMG-20200319-WA0011.jpg (file attached)`
-var RegexTextAttachment string = `\(file attached\)`
+// RegexAttachmentText format input `IMG-20200319-WA0011.jpg (file attached)`
+var RegexAttachmentText string = `\(file attached\)`
 
-// RawBuilder _
-type RawBuilder interface {
-	ChatParser(user_id string, chat []byte) Parser
+var RegexpMessage string = `^(?:U+200E|U+200F)*\[?(\d{1,4}[-/.] ?\d{1,4}[-/.] ?\d{1,4})[,.]? \D*?(\d{1,2}[.:]\d{1,2}(?:[.:]\d{1,2})?)(?: ([ap]\.? ?m\.?))?\]?(?: -|:)? (.+?): (.+)`
+var RegexpMessageSystem string = `^(?:U+200E|U+200F)*\[?(\d{1,4}[-/.] ?\d{1,4}[-/.] ?\d{1,4})[,.]? \D*?(\d{1,2}[.:]\d{1,2}(?:[.:]\d{1,2})?)(?: ([ap]\.? ?m\.?))?\]?(?: -|:)? (.+)`
+var RegexMessageAttachment string = `<.+:(.+)>`
+
+type DateFormat struct {
+	Hours  string `json:"hours"`
+	Mins   string `json:"mins"`
+	Format string `json:"format"`
+	Day    int    `json:"day"`
+	Month  int    `json:"month"`
+	Year   int    `json:"year"`
+	UTC    string `json:"utc"`
 }
 
-type rawbuilder struct{}
-
-// Parser _
-type Parser interface {
-	ParserMessages(outputMessages *string) error
+// Attachment _
+type Attachment struct {
+	Exist     bool   `json:"exist"`
+	FileName  string `json:"fileName,omitempty"`
+	Extension string `json:"extension,omitempty"`
 }
 
-type parserstruct struct {
-	err  error
-	chat *string
+// RawMessage _
+type RawMessage struct {
+	IsSystem bool   `json:"isSystem"`
+	Message  string `json:"msg"`
 }
 
-func New() RawBuilder {
-	return &rawbuilder{}
+// Message _
+type Message struct {
+	Date       DateFormat `json:"date"`
+	Author     string     `json:"author"`
+	IsSender   bool       `json:"isSender"`
+	IsInfo     bool       `json:"isInfo"`
+	IsReceiver bool       `json:"isReceiver"`
+	Message    string     `json:"message"`
+	Attachment Attachment `json:"attachment"`
 }
 
-func getTempChat(user_id string) string {
-	pwd, _ := os.Getwd()
+// ChatBuilder _
+type ChatBuilder struct{}
 
-	if len(user_id) > 0 {
-		return filepath.Join(pwd, ".tmp", user_id)
-	} else {
-		return filepath.Join(pwd, ".tmp")
-	}
-}
-
-func (r *rawbuilder) ChatParser(user_id string, chat []byte) Parser {
-	var empty_chat = ""
-	chatTemp := getTempChat(user_id)
-	tempPath := getTempChat("")
-
-	err := os.MkdirAll(tempPath, os.ModeDir)
-	if err != nil {
-		return &parserstruct{chat: &empty_chat, err: err}
-	}
-
-	f, errInitTempFile := os.Create(chatTemp)
-	if errInitTempFile != nil {
-		return &parserstruct{chat: &empty_chat, err: errInitTempFile}
-	}
-
-	_, errorWrite := f.Write([]byte(byteToStringMessages(chat)))
-	if errorWrite != nil {
-		return &parserstruct{chat: &empty_chat, err: errorWrite}
-	}
-
-	errCloseTempChat := f.Close()
-	if errCloseTempChat != nil {
-		return &parserstruct{chat: &empty_chat, err: errCloseTempChat}
-	}
-
-	parsedChat, errChatParser := exec.Command(constants.CLI_WP_PARSER, chatTemp).Output()
-	if errChatParser != nil {
-		return &parserstruct{chat: &empty_chat, err: errChatParser}
-	}
-
-	chatValue := string(parsedChat[:])
-
-	return &parserstruct{chat: &chatValue}
-}
-
-// ParserMessages _
-func (p *parserstruct) ParserMessages(outputMessages *string) error {
-	if p.err != nil {
-		return p.err
-	}
-
-	*outputMessages = *p.chat
-	return nil
-}
-
-func byteToStringMessages(data []byte) string {
-	var messages string
-
-	regexContact, _ := regexp.Compile(RegexContact)
-
-	var whatsappMessages []string
-
-	plainMessages := strings.TrimSpace(string(data))
-	bytesOfMessages := []byte(plainMessages)
-	messagesIndexes := regexContact.FindAllStringIndex(plainMessages, -1)
-
-	for i := 0; i < len(messagesIndexes); i++ {
-		axis := messagesIndexes[i]
-		nextIndex := i + 1
-		existMessage := len(axis) == 2
-
-		if existMessage {
-			start, _ := axis[0], axis[1]
-
-			if nextIndex < len(messagesIndexes) {
-				nextAxis := messagesIndexes[nextIndex]
-				existNextAxis := len(nextAxis) == 2
-
-				if existNextAxis {
-					message := string(bytesOfMessages[start:nextAxis[0]])
-					message = strings.TrimSpace(replaceAttachment(message))
-					whatsappMessages = append(whatsappMessages, message)
-				}
-
-			} else {
-				message := string(bytesOfMessages[start:])
-				message = strings.TrimSpace(replaceAttachment(message))
-				whatsappMessages = append(whatsappMessages, message)
-			}
-
-		}
-	}
-
-	messages = strings.Join(whatsappMessages, "\n")
-
-	return messages
-}
-
-func replaceAttachment(message string) string {
+func formatAttachment(message string) string {
 	regexAttachment, _ := regexp.Compile(RegexAttachment)
-	regexTextAttachment, _ := regexp.Compile(RegexTextAttachment)
+	regexTextAttachment, _ := regexp.Compile(RegexAttachmentText)
 
 	attachment := regexTextAttachment.ReplaceAllString(regexAttachment.FindString(message), "${1}$2")
 
@@ -156,6 +74,194 @@ func replaceAttachment(message string) string {
 	fileName = strings.ReplaceAll(fileName, " ", "%20")
 
 	repl := fmt.Sprintf(": <attached: %s>", fileName)
-	result := regexAttachment.ReplaceAllString(message, repl)
-	return result
+	messageWithAttachment := regexAttachment.ReplaceAllString(message, repl)
+	return messageWithAttachment
+}
+
+func parseMessageAttachment(message string) Attachment {
+	var attachment Attachment
+	regexMessageAttachment, _ := regexp.Compile(RegexMessageAttachment)
+
+	if regexMessageAttachment.MatchString(message) {
+		fileName := regexMessageAttachment.FindStringSubmatch(message)[1]
+		attachment = Attachment{
+			FileName: strings.TrimSpace(fileName),
+		}
+	}
+
+	return attachment
+}
+
+func safeStringArray(value []string, expected int) []string {
+	if expected >= len(value) {
+		return value
+	} else {
+		return make([]string, expected)
+	}
+}
+
+func splitChatMessages(chat string) []string {
+	regexSplitMessage, _ := regexp.Compile("(?:\r\n|\r|\n)")
+	plainMessages := regexSplitMessage.Split(chat, -1)
+	return plainMessages
+}
+
+func parsePlainMessages(plainMessages []string) []RawMessage {
+	rawMessages := make([]RawMessage, 0)
+
+	parserMessage, _ := regexp.Compile(RegexpMessage)
+	parserMessageSystem, _ := regexp.Compile(RegexpMessageSystem)
+
+	for _, plainMessage := range plainMessages {
+		if existMessage := len(plainMessage) > 0; existMessage {
+			message := formatAttachment(plainMessage)
+
+			if !parserMessage.MatchString(plainMessage) {
+				if parserMessageSystem.MatchString(plainMessage) {
+					messageRaw := RawMessage{
+						IsSystem: true,
+						Message:  message,
+					}
+					rawMessages = append(rawMessages, messageRaw)
+					continue
+				}
+
+				if len(rawMessages)-1 >= 0 {
+					prevMessage := rawMessages[len(rawMessages)-1]
+
+					messageRaw := RawMessage{
+						IsSystem: prevMessage.IsSystem,
+						Message:  prevMessage.Message + "\n" + message,
+					}
+
+					rawMessages[len(rawMessages)-1] = messageRaw
+				}
+
+			} else {
+				messageRaw := RawMessage{
+					IsSystem: false,
+					Message:  message,
+				}
+				rawMessages = append(rawMessages, messageRaw)
+			}
+		}
+	}
+
+	return rawMessages
+}
+
+func rawMessagesToMessages(rawMessages []RawMessage) []Message {
+	parserMessage, _ := regexp.Compile(RegexpMessage)
+	parserMessageSystem, _ := regexp.Compile(RegexpMessageSystem)
+
+	var sender string
+	var receiver string
+	var lastDate string
+	var systemAuthor = "system"
+
+	messages := make([]Message, 0)
+
+	emojiConvert := emoji.NewEmojiParser()
+
+	for _, m := range rawMessages {
+		if m.IsSystem {
+			// [_ , date, time, ampm, message, ...]
+			messageGroup := safeStringArray(parserMessageSystem.FindStringSubmatch(m.Message), 5)
+
+			mDate := messageGroup[constants.MESSAGE_INDEX_DATE]            // index 1
+			mTime := messageGroup[constants.MESSAGE_INDEX_TIME]            // index 2
+			mTimeAMPM := messageGroup[constants.MESSAGE_INDEX_TIME_FORMAT] // index 3
+			mMessage := messageGroup[constants.MESSAGE_INDEX_MESSAGE-1]    // index 4
+
+			messageValue := emojiConvert.ToHtmlEntities(mMessage)
+
+			messageTime := formatDate(mDate, mTime, mTimeAMPM)
+
+			messages = append(messages, Message{
+				Date:    messageTime,
+				Author:  systemAuthor,
+				Message: messageValue,
+				IsInfo:  true,
+			})
+		} else {
+			// [_ ,date, time, ampm, author, message, ...]
+			messageGroup := safeStringArray(parserMessage.FindStringSubmatch(m.Message), 6)
+
+			mDate := messageGroup[constants.MESSAGE_INDEX_DATE]            // index 1
+			mTime := messageGroup[constants.MESSAGE_INDEX_TIME]            // index 2
+			mTimeAMPM := messageGroup[constants.MESSAGE_INDEX_TIME_FORMAT] // index 3
+			mAuthor := messageGroup[constants.MESSAGE_INDEX_AUTHOR]        // index 4
+			mMessage := messageGroup[constants.MESSAGE_INDEX_MESSAGE]      // index 5
+
+			messageValue := emojiConvert.ToHtmlEntities(mMessage)
+
+			messageTime := formatDate(mDate, mTime, mTimeAMPM)
+			currentDate := fmt.Sprintf("%v_%v_%v", messageTime.Month, messageTime.Day, messageTime.Year)
+
+			if len(lastDate) == 0 || !utils.IsEqualString(currentDate, lastDate) {
+				badgeMessagesDate := Message{
+					Date:       messageTime,
+					Author:     systemAuthor,
+					Message:    getTranslateDate("es", messageTime.Month, messageTime.Day, messageTime.Year),
+					IsSender:   false,
+					IsReceiver: false,
+					IsInfo:     true,
+				}
+
+				messages = append(messages, badgeMessagesDate)
+			}
+
+			lastDate = currentDate
+
+			if notBeDefined := len(sender) == 0; notBeDefined && mAuthor != receiver {
+				sender = mAuthor
+			}
+
+			if notBeDefined := len(receiver) == 0; notBeDefined && mAuthor != sender {
+				receiver = mAuthor
+			}
+
+			if sender == mAuthor {
+				message := Message{
+					Date:       messageTime,
+					Author:     mAuthor,
+					Message:    messageValue,
+					Attachment: parseMessageAttachment(messageValue),
+					IsInfo:     false,
+					IsSender:   true,
+					IsReceiver: false,
+				}
+				messages = append(messages, message)
+				continue
+			}
+
+			if receiver == mAuthor {
+				message := Message{
+					Date:       messageTime,
+					Author:     mAuthor,
+					Message:    messageValue,
+					Attachment: parseMessageAttachment(messageValue),
+					IsInfo:     false,
+					IsSender:   false,
+					IsReceiver: true,
+				}
+				messages = append(messages, message)
+				continue
+			}
+		}
+	}
+
+	return messages
+}
+
+func New() *ChatBuilder {
+	return &ChatBuilder{}
+}
+
+func (r *ChatBuilder) Parser(user_id string, chat []byte) ([]Message, error) {
+	chatValue := string(chat)
+	plainMessages := splitChatMessages(chatValue)
+	rawMessages := parsePlainMessages(plainMessages)
+	messages := rawMessagesToMessages(rawMessages)
+	return messages, nil
 }
