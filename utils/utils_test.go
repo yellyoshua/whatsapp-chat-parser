@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -77,4 +78,50 @@ func TestValueOfTextFile(t *testing.T) {
 	}
 
 	assert.Equal(t, text, expected)
+}
+
+func TestStringToInt(t *testing.T) {
+	val := "10"
+	num := StringToInt(val)
+	fmt.Println(num)
+	assert.EqualValues(t, 10, num)
+
+	val1 := "01"
+	num1 := StringToInt(val1)
+	fmt.Println(num1)
+	assert.EqualValues(t, 1, num1)
+
+	val2 := " 01"
+	num2 := StringToInt(val2)
+	fmt.Println(num2)
+	assert.EqualValues(t, 1, num2)
+
+	val3 := "a01"
+	num3 := StringToInt(val3)
+	fmt.Println(num3)
+	assert.EqualValues(t, 0, num3)
+
+	val4 := "2001"
+	num4 := StringToInt(val4)
+	fmt.Println(num4)
+	assert.EqualValues(t, 2001, num4)
+
+	val5 := ""
+	num5 := StringToInt(val5)
+	fmt.Println(num5)
+	assert.EqualValues(t, 0, num5)
+}
+
+func TestPadStart(t *testing.T) {
+	expected := "20002010"
+	result := PadStart("10", "2000", 8)
+	assert.Equal(t, expected, result)
+
+	expected1 := "2010"
+	result1 := PadStart("10", "2000", 4)
+	assert.Equal(t, expected1, result1)
+
+	expected2 := "02"
+	result2 := PadStart("2", "0", 2)
+	assert.Equal(t, expected2, result2)
 }

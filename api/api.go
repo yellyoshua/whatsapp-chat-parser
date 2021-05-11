@@ -9,9 +9,7 @@ import (
 
 	"github.com/skip2/go-qrcode"
 	"github.com/yellyoshua/whatsapp-chat-parser/logger"
-	"github.com/yellyoshua/whatsapp-chat-parser/paper"
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
-	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
 )
 
 var ExtensionsForQR []string = []string{
@@ -72,22 +70,4 @@ func ExtractChatFromFiles(files map[string]io.Reader) string {
 	}
 
 	return chat
-}
-
-func ParseWhatsappChatMessages(user_id string, chat string, attachmentFiles map[string]string, attachmentURL string) (paper.Book, error) {
-	var messages string
-	wp := whatsapp.New()
-	writer := paper.New()
-
-	rawChat, errChatParser := wp.ChatParser(user_id, []byte(chat))
-	if errChatParser != nil {
-		return nil, errChatParser
-	}
-
-	if err := rawChat.ParserMessages(&messages); err != nil {
-		return nil, err
-	}
-
-	book := writer.UnmarshalJSONMessages(messages, attachmentFiles, attachmentURL)
-	return book, nil
 }

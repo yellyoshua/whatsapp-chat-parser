@@ -16,6 +16,7 @@ import (
 	"github.com/yellyoshua/whatsapp-chat-parser/paper"
 	"github.com/yellyoshua/whatsapp-chat-parser/storage"
 	"github.com/yellyoshua/whatsapp-chat-parser/utils"
+	"github.com/yellyoshua/whatsapp-chat-parser/whatsapp"
 )
 
 func hardWork() {
@@ -70,8 +71,6 @@ func (h *Handl) backgroundUploadFiles(ctx *gin.Context, uuid string, attachments
 		ch <- uuid
 		close(uploadsQueue)
 		<-isDone
-
-		logger.Info("files from " + uuid + " be uploaded")
 	}(uuid, uploadsQueue, isDone)
 }
 
@@ -144,7 +143,11 @@ func (h *Handl) PostUploadChatFiles(ctx *gin.Context) {
 
 			h.backgroundUploadFiles(ctxCopy, uuid, attachmentsURL, mergedFiles)
 
-			book, err := api.ParseWhatsappChatMessages(uuid, chat, mergedFiles, attachmentsURL)
+			chatBuilder := whatsapp.New()
+			messages, err := chatBuilder.Parser(uuid, []byte(chat))
+
+			writer := paper.New(messages)
+			book := writer.AttachFiles(mergedFiles, attachmentsURL)
 
 			if err != nil {
 				ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
@@ -165,14 +168,19 @@ func PostParseOnlyChat(ctx *gin.Context) {
 	}
 
 	chat := api.ExtractChatFromFiles(files)
-	book, err := api.ParseWhatsappChatMessages(uuid, chat, nil, "/")
+
+	chatBuilder := whatsapp.New()
+	messages, err := chatBuilder.Parser(uuid, []byte(chat))
+
+	writer := paper.New(messages)
+	book := writer.AttachFiles(nil, "/")
 
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, "error processing messages")
 		closeConnection(ctx)
 	} else {
 		responseFormat, _ := ctx.Params.Get("format")
-		resWithFormat(ctx, book, responseFormat, "")
+		resWithFormat(ctx, book, responseFormat, uuid)
 	}
 }
 
@@ -181,6 +189,7 @@ func resWithFormat(ctx *gin.Context, book paper.Book, responseFormat string, uui
 	case constants.FormatJSON:
 		{
 			var result interface{}
+
 			messages, err := book.ExportJSON()
 
 			if err != nil {

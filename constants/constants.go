@@ -8,7 +8,11 @@ const (
 )
 
 const (
-	CLI_WP_PARSER string = "whatsapp-parser"
+	MESSAGE_INDEX_DATE        = 1
+	MESSAGE_INDEX_TIME        = 2
+	MESSAGE_INDEX_TIME_FORMAT = 3
+	MESSAGE_INDEX_AUTHOR      = 4
+	MESSAGE_INDEX_MESSAGE     = 5
 )
 
 const (
