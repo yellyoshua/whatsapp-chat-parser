@@ -11,7 +11,7 @@ jobs:
       matrix:
         go-version: [1.15.x]
         # Operative systems allowed [ubuntu-latest, macos-latest, windows-latest]
-        # Windows OS ommited because have problem with gcc
+        # [solved] Windows OS ommited because have problem with gcc
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
