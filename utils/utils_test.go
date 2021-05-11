@@ -125,3 +125,11 @@ func TestPadStart(t *testing.T) {
 	result2 := PadStart("2", "0", 2)
 	assert.Equal(t, expected2, result2)
 }
+
+func TestSafeStringArray(t *testing.T) {
+	val := SafeStringArray([]string{"a", "b"}, 3)
+	assert.Equal(t, 3, len(val))
+
+	val1 := SafeStringArray([]string{}, 3)
+	assert.Equal(t, 3, len(val1))
+}

@@ -185,3 +185,11 @@ func PadStart(value string, pad_start string, length int) string {
 
 	return valuePadStart + value
 }
+
+func SafeStringArray(value []string, lengthExpected int) []string {
+	if len(value) >= lengthExpected {
+		return value
+	} else {
+		return make([]string, lengthExpected)
+	}
+}

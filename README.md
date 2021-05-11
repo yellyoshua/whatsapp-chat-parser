@@ -57,11 +57,8 @@ func main() {
 	// del chat. Puede traducirse a un 'userID'
 	uuid := "1e3e4e5e6e7e8e9e10e"
 	
-	chatBuilder := whatsapp.New()
-	messages, err := chatBuilder.Parser(uuid, whatsappChat)
-	if err != nil {
-		logger.Fatalf("error al parsear el chat -> %s", err.Error())
-	}
+	chatBuilder := whatsapp.New(uuid, whatsappChat)
+	messages:= chatBuilder..Messages()
 
 	log.Printf("Se procesaron %v messages", len(messages))
 	log.Printf("%s - %s - %s",
@@ -140,6 +137,7 @@ $ ./whatsapp-chat-parser
 `github.com/yellyoshua/whatsapp-chat-parser/whatsapp`
 
 ```golang
+
 type DateFormat struct {
 	Hours  string `json:"hours"`
 	Mins   string `json:"mins"`
@@ -166,6 +164,7 @@ type Message struct {
 	Message    string     `json:"message"`
 	Attachment Attachment `json:"attachment"`
 }
+
 ```
 
 📚 Interfaz de `paper.Book`
@@ -173,6 +172,7 @@ type Message struct {
 `github.com/yellyoshua/whatsapp-chat-parser/paper`
 
 ```golang
+
 // Book __
 type Book interface {
 	Export() []whatsapp.Message
@@ -180,6 +180,7 @@ type Book interface {
 	ExportHTML(paper Type) (string, error)
 	ExportHTMLFile(paper Type, filePathName string) error
 }
+
 ```
 
 📋 Estructura de `whatsapp.ChatBuilder`
@@ -188,9 +189,9 @@ type Book interface {
 
 ```golang
 
-func New() *ChatBuilder
+func New(user_id string, chat string) *MessagesBroker
 
-func (r *ChatBuilder) Parser(user_id string, chat []byte) ([]Message, error)
+func (mc *MessagesBroker) Messages() []Message
 
 ```
 
